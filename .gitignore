@@ -10,7 +10,13 @@ __pycache__/
 
 # KKBOX 원본 데이터
 data/raw/*
-!data/raw/README.md
+data/sampled/*
+
+data/processed/*
+!data/processed/modeling_data_100k.csv
+
+!data/raw/.gitkeep
+!data/sampled/.gitkeep
 
 # 모델 및 실행 결과
 models/*.pkl
