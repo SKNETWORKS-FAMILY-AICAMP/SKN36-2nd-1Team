@@ -16,6 +16,7 @@ data/processed/*
 !data/raw/.gitkeep
 !data/sampled/.gitkeep
 !data/processed/.gitkeep
+!data/processed/integrated_data.csv
 
 # 모델 및 실행 결과
 models/*.pkl
