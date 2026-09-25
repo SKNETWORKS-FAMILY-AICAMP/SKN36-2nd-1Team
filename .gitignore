@@ -23,3 +23,5 @@ models/*.pkl
 models/*.joblib
 models/*.pt
 models/*.pth
+
+database/mysql_data/
