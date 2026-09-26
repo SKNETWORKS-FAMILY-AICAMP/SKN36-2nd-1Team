@@ -2709,6 +2709,7 @@ dependencies = [
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "seaborn" },
     { name = "shap" },
+    { name = "torch" },
     { name = "tqdm" },
     { name = "xgboost", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "xgboost", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
@@ -2747,6 +2748,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.14,<2.0" },
     { name = "seaborn", specifier = ">=0.13,<0.14" },
     { name = "shap", specifier = ">=0.50.0" },
+    { name = "torch", specifier = ">=2.14.0" },
     { name = "tqdm", specifier = ">=4.66,<5.0" },
     { name = "xgboost", specifier = ">=2.1,<4.0" },
 ]
