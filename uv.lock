@@ -2284,6 +2284,7 @@ dependencies = [
     { name = "seaborn" },
     { name = "shap", version = "0.50.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
     { name = "shap", version = "0.52.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "torch" },
     { name = "tqdm" },
     { name = "xgboost" },
 ]
@@ -2321,6 +2322,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.14,<2.0" },
     { name = "seaborn", specifier = ">=0.13,<0.14" },
     { name = "shap", specifier = ">=0.50.0" },
+    { name = "torch", specifier = ">=2.14.0" },
     { name = "tqdm", specifier = ">=4.66,<5.0" },
     { name = "xgboost", specifier = ">=2.1,<4.0" },
 ]
