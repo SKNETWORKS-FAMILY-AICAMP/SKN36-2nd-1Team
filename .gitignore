@@ -25,3 +25,6 @@ models/*.pt
 models/*.pth
 
 database/mysql_data/
+
+# CatBoost 학습 기록
+catboost_info/

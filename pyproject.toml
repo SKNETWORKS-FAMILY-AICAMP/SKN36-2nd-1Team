@@ -29,6 +29,8 @@ dependencies = [
     "jupyterlab>=4.2,<5.0",
     "ipykernel>=6.29,<8.0",
     "easydict>=1.13",
+    "shap>=0.50.0",
+    "numba>=0.61",
 ]
 
 [dependency-groups]
