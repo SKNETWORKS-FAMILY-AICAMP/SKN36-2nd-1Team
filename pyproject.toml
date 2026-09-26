@@ -3,20 +3,18 @@ name = "skn36-2nd-1team"
 version = "0.1.0"
 description = "KKBOX music streaming customer churn prediction project"
 readme = "README.md"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     # Data processing
     "numpy>=2.0,<3.0",
     "pandas>=2.2,<3.0",
     "pyarrow>=17.0,<22.0",
     "scipy>=1.14,<2.0",
-
     # Visualization and EDA
     "matplotlib>=3.9,<4.0",
     "seaborn>=0.13,<0.14",
     "plotly>=5.24,<7.0",
     "missingno>=0.5,<0.6",
-
     # Machine learning
     "scikit-learn>=1.5,<2.0",
     "imbalanced-learn>=0.12,<1.0",
@@ -24,14 +22,15 @@ dependencies = [
     "lightgbm>=4.5,<5.0",
     "catboost>=1.2,<2.0",
     "optuna>=4.0,<5.0",
-
     # Utilities and model persistence
     "joblib>=1.4,<2.0",
     "tqdm>=4.66,<5.0",
-
     # Notebook environment
     "jupyterlab>=4.2,<5.0",
     "ipykernel>=6.29,<8.0",
+    "easydict>=1.13",
+    "shap>=0.50.0",
+    "numba>=0.61",
 ]
 
 [dependency-groups]
