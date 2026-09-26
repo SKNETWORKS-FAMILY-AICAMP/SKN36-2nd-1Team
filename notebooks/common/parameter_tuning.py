@@ -22,7 +22,7 @@ class CatObjective:
         if self.iterations:
             hp["iterations"] = trial.suggest_int("iterations", *self.iterations, step=100)
         if self.lr:
-            hp["learning_rate"] = trial.suggest_float("learning_rate", *self.lr)
+            hp["learning_rate"] = trial.suggest_float("learning_rate", *self.lr, log=True)  # 학습률은 로그 스케일로 탐색
         if self.depth:
             hp["depth"] = trial.suggest_int("depth", *self.depth)
         if self.l2:
@@ -52,7 +52,7 @@ class LgbObjective:
         if self.n_estimators:
             hp["n_estimators"] = trial.suggest_int("n_estimators", *self.n_estimators, step=100)
         if self.lr:
-            hp["learning_rate"] = trial.suggest_float("learning_rate", *self.lr)
+            hp["learning_rate"] = trial.suggest_float("learning_rate", *self.lr, log=True)  # 학습률은 로그 스케일로 탐색
         if self.num_leaves:
             hp["num_leaves"] = trial.suggest_int("num_leaves", *self.num_leaves)
         if self.min_child:
@@ -80,7 +80,7 @@ class XgbObjective:
         if self.n_estimators:
             hp["n_estimators"] = trial.suggest_int("n_estimators", *self.n_estimators, step=100)
         if self.lr:
-            hp["learning_rate"] = trial.suggest_float("learning_rate", *self.lr)
+            hp["learning_rate"] = trial.suggest_float("learning_rate", *self.lr, log=True)  # 학습률은 로그 스케일로 탐색
         if self.max_depth:
             hp["max_depth"] = trial.suggest_int("max_depth", *self.max_depth)
         if self.min_child:
@@ -93,7 +93,10 @@ class XgbObjective:
         return np.mean(scores)
 
 
-def run_study(objective, seed, n_trials=20, timeout=None):
+def run_study(objective, seed, n_trials=30, timeout=None):
+    """주의: study.best_value는 여러 trial 중 '최고값'이라 낙관적으로 부풀려져 있다.
+    기본 설정과 공정하게 비교하려면 cross_validation.cv_evaluate로
+    튜닝 때와 다른 fold(seed)에서 기본값·최적값을 다시 평가할 것."""
 
     optuna.logging.disable_default_handler()
 

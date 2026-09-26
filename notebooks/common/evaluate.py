@@ -1,4 +1,4 @@
-from sklearn.metrics import auc,roc_auc_score, average_precision_score, classification_report, confusion_matrix
+from sklearn.metrics import roc_auc_score, average_precision_score, classification_report, confusion_matrix
 
 
 
