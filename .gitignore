@@ -8,18 +8,16 @@
 __pycache__/
 *.py[cod]
 
-# KKBOX 원본 데이터
+# 데이터 파일 제외, README는 포함
 data/raw/*
+!data/raw/README.md
+
 data/sampled/*
+!data/sampled/README.md
+
 data/processed/*
+!data/processed/README.md
 
-!data/raw/.gitkeep
-!data/sampled/.gitkeep
-!data/processed/.gitkeep
-!data/processed/integrated_data.csv
-
-# 모델 및 실행 결과
-models/*.pkl
-models/*.joblib
-models/*.pt
-models/*.pth
+# 딥러닝 실험 가중치 제외
+*.pt
+*.pth
