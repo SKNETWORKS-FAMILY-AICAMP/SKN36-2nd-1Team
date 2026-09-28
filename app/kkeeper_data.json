@@ -1,0 +1,279 @@
+{
+  "experiments": [
+    {
+      "id": "exp_071acb94",
+      "name": "미접속 실험",
+      "hypothesis": "",
+      "benefit": "-",
+      "duration": "4주",
+      "segments": [
+        {
+          "name": "장기 미접속 · 개인 요금제",
+          "plan": "개인",
+          "trait": "최근 30일 이상 접속 기록이 없고, 과거 평균 청취 시간은 상위권이었던 개인 요금제 이용자예요.",
+          "risk": "높음",
+          "tenure": "1년 이상",
+          "last": "30일 이상 미접속",
+          "id": "seg1",
+          "size": 3512,
+          "score": 91
+        }
+      ],
+      "total_n": 3512,
+      "ratio": 50,
+      "exp_n": 1756,
+      "ctrl_n": 1756,
+      "status": "검증 완료",
+      "result": {
+        "exp_kept": 878,
+        "ctrl_kept": 878,
+        "exp_rate": 50.0,
+        "ctrl_rate": 50.0,
+        "lift": 0.0,
+        "extra": 0,
+        "verdict": "판단 보류",
+        "kind": "warn"
+      }
+    },
+    {
+      "id": "exp_01b10859",
+      "name": "미접속 실험",
+      "hypothesis": "",
+      "benefit": "-",
+      "duration": "직접 설정",
+      "segments": [
+        {
+          "name": "장기 미접속 · 개인 요금제",
+          "plan": "개인",
+          "trait": "최근 30일 이상 접속 기록이 없고, 과거 평균 청취 시간은 상위권이었던 개인 요금제 이용자예요.",
+          "risk": "높음",
+          "tenure": "1년 이상",
+          "last": "30일 이상 미접속",
+          "id": "seg1",
+          "size": 3512,
+          "score": 91
+        }
+      ],
+      "total_n": 3512,
+      "ratio": 50,
+      "exp_n": 1756,
+      "ctrl_n": 1756,
+      "status": "검증 완료",
+      "result": {
+        "exp_kept": 878,
+        "ctrl_kept": 878,
+        "exp_rate": 50.0,
+        "ctrl_rate": 50.0,
+        "lift": 0.0,
+        "extra": 0,
+        "verdict": "판단 보류",
+        "kind": "warn"
+      }
+    },
+    {
+      "id": "exp_25c22477",
+      "name": "미접속 실험",
+      "hypothesis": "",
+      "benefit": "-",
+      "duration": "2주",
+      "segments": [
+        {
+          "name": "장기 미접속 · 개인 요금제",
+          "plan": "개인",
+          "trait": "최근 30일 이상 접속 기록이 없고, 과거 평균 청취 시간은 상위권이었던 개인 요금제 이용자예요.",
+          "risk": "높음",
+          "tenure": "1년 이상",
+          "last": "30일 이상 미접속",
+          "id": "seg1",
+          "size": 3512,
+          "score": 91
+        }
+      ],
+      "total_n": 3512,
+      "ratio": 70,
+      "exp_n": 2458,
+      "ctrl_n": 1054,
+      "status": "결과 입력 대기",
+      "result": null
+    },
+    {
+      "id": "exp_f11ebcec",
+      "name": "미접속 실험",
+      "hypothesis": "",
+      "benefit": "-",
+      "duration": "2주",
+      "segments": [
+        {
+          "name": "장기 미접속 · 개인 요금제",
+          "plan": "개인",
+          "trait": "최근 30일 이상 접속 기록이 없고, 과거 평균 청취 시간은 상위권이었던 개인 요금제 이용자예요.",
+          "risk": "높음",
+          "tenure": "1년 이상",
+          "last": "30일 이상 미접속",
+          "id": "seg1",
+          "size": 3512,
+          "score": 91
+        }
+      ],
+      "total_n": 3512,
+      "ratio": 30,
+      "exp_n": 1054,
+      "ctrl_n": 2458,
+      "status": "결과 입력 대기",
+      "result": null
+    },
+    {
+      "id": "exp_c4574830",
+      "name": "ㅇㅇ 실험",
+      "hypothesis": "",
+      "benefit": "-",
+      "duration": "2주",
+      "segments": [
+        {
+          "name": "장기 미접속 · 개인 요금제",
+          "plan": "개인",
+          "trait": "최근 30일 이상 접속 기록이 없고, 과거 평균 청취 시간은 상위권이었던 개인 요금제 이용자예요.",
+          "risk": "높음",
+          "tenure": "1년 이상",
+          "last": "30일 이상 미접속",
+          "id": "seg1",
+          "size": 1487,
+          "score": 85
+        }
+      ],
+      "total_n": 1487,
+      "ratio": 50,
+      "exp_n": 744,
+      "ctrl_n": 743,
+      "status": "진행중",
+      "result": null
+    },
+    {
+      "id": "exp_302bcfdf",
+      "name": "ㅇㅇ 실험",
+      "hypothesis": "",
+      "benefit": "-",
+      "duration": "2주",
+      "segments": [
+        {
+          "name": "장기 미접속 · 개인 요금제",
+          "plan": "개인",
+          "trait": "최근 30일 이상 접속 기록이 없고, 과거 평균 청취 시간은 상위권이었던 개인 요금제 이용자예요.",
+          "risk": "높음",
+          "tenure": "1년 이상",
+          "last": "30일 이상 미접속",
+          "id": "seg1",
+          "size": 1487,
+          "score": 85
+        }
+      ],
+      "total_n": 1487,
+      "ratio": 50,
+      "exp_n": 744,
+      "ctrl_n": 743,
+      "status": "진행중",
+      "result": null
+    },
+    {
+      "id": "exp_68bde601",
+      "name": "dd 실험",
+      "hypothesis": "",
+      "benefit": "-",
+      "duration": "2주",
+      "segments": [
+        {
+          "name": "장기 미접속 · 개인 요금제",
+          "plan": "개인",
+          "trait": "최근 30일 이상 접속 기록이 없고, 과거 평균 청취 시간은 상위권이었던 개인 요금제 이용자예요.",
+          "risk": "높음",
+          "tenure": "1년 이상",
+          "last": "30일 이상 미접속",
+          "id": "seg1",
+          "size": 1789,
+          "score": 93
+        },
+        {
+          "name": "신규 이탈 경고 · 가입 초기",
+          "plan": "개인",
+          "trait": "가입 3개월 미만이면서 추천 콘텐츠 클릭률이 평균보다 낮은 이용자예요.",
+          "risk": "높음",
+          "tenure": "3개월 미만",
+          "last": "7일 이상 미접속",
+          "id": "seg2",
+          "size": 3724,
+          "score": 88
+        }
+      ],
+      "total_n": 5513,
+      "ratio": 50,
+      "exp_n": 2756,
+      "ctrl_n": 2757,
+      "status": "검증 완료",
+      "result": {
+        "exp_kept": 1378,
+        "ctrl_kept": 1378,
+        "exp_rate": 50.0,
+        "ctrl_rate": 49.98186434530287,
+        "lift": 0.018135654697132964,
+        "extra": 0,
+        "verdict": "판단 보류",
+        "kind": "warn"
+      }
+    },
+    {
+      "id": "exp_86b273f1",
+      "name": "미접속 실험",
+      "hypothesis": "",
+      "benefit": "-",
+      "duration": "2주",
+      "segments": [
+        {
+          "name": "요금 부담 신호 · 학생 요금제",
+          "plan": "학생",
+          "trait": "학생 요금제 만료가 다가오고, 최근 결제 재시도 이력이 있는 이용자예요.",
+          "risk": "중간",
+          "tenure": "3~12개월",
+          "last": "7일 이상 미접속",
+          "id": "seg3",
+          "size": 4881,
+          "score": 91
+        }
+      ],
+      "total_n": 4881,
+      "ratio": 50,
+      "exp_n": 2440,
+      "ctrl_n": 2441,
+      "status": "준비중",
+      "result": null
+    }
+  ],
+  "strategy_library": [
+    {
+      "exp_id": "exp_071acb94",
+      "name": "미접속 실험",
+      "target": "장기 미접속 · 개인 요금제",
+      "lift": 0.0,
+      "n": 3512,
+      "verdict": "판단 보류",
+      "kind": "warn"
+    },
+    {
+      "exp_id": "exp_01b10859",
+      "name": "미접속 실험",
+      "target": "장기 미접속 · 개인 요금제",
+      "lift": 0.0,
+      "n": 3512,
+      "verdict": "판단 보류",
+      "kind": "warn"
+    },
+    {
+      "exp_id": "exp_68bde601",
+      "name": "dd 실험",
+      "target": "장기 미접속 · 개인 요금제·신규 이탈 경고 · 가입 초기",
+      "lift": 0.018135654697132964,
+      "n": 5513,
+      "verdict": "판단 보류",
+      "kind": "warn"
+    }
+  ]
+}
