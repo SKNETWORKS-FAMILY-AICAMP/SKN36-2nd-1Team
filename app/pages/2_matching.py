@@ -1,160 +1,298 @@
 """
-KKeeper — 고객 매칭 페이지 (pages/2_matching.py · 주소: /matching)
+KKeeper — 위험 고객 집단 선택 페이지 (pages/2_matching.py · 주소: /matching)
 
-마케팅 설계(1_marketing.py)에서 넘어온 전략을 바탕으로, 전략에 맞을 것으로 보이는
-고객 유형(세그먼트) 후보를 보여주고, 실험에 쓸 유형을 고르게 해요.
-시안(Claude Design 캔버스의 MatchingDark/Light.dc.html)과 동일한 구조로 맞췄어요:
-카드 안 내용은 통째로 HTML로 그리고, 선택 여부만 카드 아래 별도 컨트롤로 받아요.
-지금은 실제 데이터가 연결되어 있지 않아서, 전략 내용을 바탕으로 그럴듯한 예시 유형을
-만들어 보여줘요. 데이터가 연결되면 pick_segments()만 실제 매칭 로직으로 바꾸면 돼요.
+미리 생성한 위험 고객 4개 집단을 불러와 보여줍니다.
+사용자는 고객 집단 카드를 선택 영역으로 드래그하고, 선택한 집단의
+실제 요약 지표와 이탈확률 상위 고객을 확인한 뒤 다음 단계로 이동합니다.
+
 """
 
-import hashlib
-import random
 from html import escape
-import sys
 from pathlib import Path
+import sys
 
+import pandas as pd
 import streamlit as st
 
-# ui.py는 app.py와 같은 폴더에 있어요 (pages 폴더 안이 아니에요)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+try:
+    from streamlit_sortables import sort_items
+except ImportError:  # 패키지 설치 전에도 페이지가 완전히 멈추지 않도록 선택형 UI 제공
+    sort_items = None
+
+# 실제 구조: 프로젝트/app/pages/2_matching.py, 프로젝트/app/ui.py, 프로젝트/data/processed
+APP_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = APP_DIR.parent
+sys.path.insert(0, str(APP_DIR))
 import ui  # noqa: E402
-from ui import compact
+from ui import compact  # noqa: E402
 
 st.set_page_config(page_title="고객 매칭 · KKeeper", layout="wide", initial_sidebar_state="collapsed")
 T = ui.init("matching")
-theme_name = ui.theme_name
 
 STEP_NAMES = ["마케팅 설계", "고객 매칭", "실험 관리", "라이브러리"]
+DATA_DIR = PROJECT_ROOT / "data" / "processed"
+SUMMARY_PATH = DATA_DIR / "risk_segment_summary.csv"
+SEGMENTS_PATH = DATA_DIR / "risk_segments.csv"
 
-# 예시 고객 유형 후보 (데이터 연결 전까지 쓰는 자리표시 값)
-SEGMENT_POOL = [
-    {"name": "장기 미접속 · 개인 요금제", "plan": "개인",
-        "trait": "최근 30일 이상 접속 기록이 없고, 과거 평균 청취 시간은 상위권이었던 개인 요금제 이용자예요.",
-        "risk": "높음", "tenure": "1년 이상", "last": "30일 이상 미접속"},
-    {"name": "요금 부담 신호 · 학생 요금제", "plan": "학생",
-        "trait": "학생 요금제 만료가 다가오고, 최근 결제 재시도 이력이 있는 이용자예요.",
-        "risk": "중간", "tenure": "3~12개월", "last": "7일 이상 미접속"},
-    {"name": "관심 이탈 · 가족 요금제 관리자", "plan": "가족",
-        "trait": "가족 요금제 내 활성 인원이 줄고, 관리자 계정의 접속 빈도도 함께 낮아진 이용자예요.",
-        "risk": "중간", "tenure": "1년 이상", "last": "14일 이상 미접속"},
-    {"name": "신규 이탈 경고 · 가입 초기", "plan": "개인",
-        "trait": "가입 3개월 미만이면서 추천 콘텐츠 클릭률이 평균보다 낮은 이용자예요.",
-        "risk": "높음", "tenure": "3개월 미만", "last": "7일 이상 미접속"},
-    {"name": "해지 철회 후보", "plan": "전체",
-        "trait": "최근 해지를 신청해 유예 기간 중이며, 과거 재구독 이력이 있는 이용자예요.",
-        "risk": "매우 높음", "tenure": "전체", "last": "전체"},
-]
+# CSV의 분석용 이름은 그대로 두고, 화면에서는 짧고 읽기 쉬운 이름을 사용합니다.
+SEGMENT_UI = {
+    "저활동·단기 구독형": {
+        "id": "low-activity-short",
+        "display": "저활동 · 단기 구독",
+        "description": "30일 단기 이용권 중심이고 청취 활동이 가장 적은 집단입니다. 위험 고객 중 상대적 위험은 가장 낮습니다.",
+    },
+    "반복 거래·취소 위험형": {
+        "id": "repeat-cancel",
+        "display": "반복 거래 · 취소 위험",
+        "description": "자동갱신을 쓰면서도 마지막 거래에서 해지한 고객이 대부분인, 해지를 반복하는 집단입니다.",
+    },
+    "장기 플랜·고결제 고위험형": {
+        "id": "long-plan-high-pay",
+        "display": "장기 플랜 · 고결제",
+        "description": "긴 이용권을 높은 금액으로 결제하고 활발히 듣지만, 이탈 확률이 가장 높은 집단입니다.",
+    },
+    "장기 관계·고빈도 거래형": {
+        "id": "long-tenure-frequent",
+        "display": "장기 관계 · 고빈도 거래",
+        "description": "오래 이용하며 거래와 결제가 잦지만 해지 경험이 있는 집단입니다.",
+    },
+}
 
+@st.cache_data(show_spinner=False)
+def load_segment_data(summary_path: str, segments_path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """노트북이 저장한 집단 요약과 고객별 분류 결과를 읽고 화면용 값을 붙입니다."""
+    summary = pd.read_csv(summary_path, encoding="utf-8-sig")
+    customers = pd.read_csv(segments_path, encoding="utf-8-sig")
 
-def pick_segments(strategy: dict, n: int = 3) -> list[dict]:
-    """전략 내용을 바탕으로 후보 유형을 골라 예시 인원·적합도를 붙여요."""
-    seed_src = f"{strategy.get('name','')}|{strategy.get('goal','')}|{strategy.get('kind','')}"
-    rng = random.Random(int.from_bytes(hashlib.sha256(seed_src.encode()).digest()[:8], 'big'))
-    goal = strategy.get("goal", "")
-    pool = list(SEGMENT_POOL)
-    if goal == "해지 철회":
-        pool.sort(key=lambda s: 0 if "해지" in s["name"] else 1)
-    elif goal == "업그레이드":
-        pool.sort(key=lambda s: 0 if s["plan"] in ("학생", "가족") else 1)
-    elif goal == "재방문 유도":
-        pool.sort(key=lambda s: 0 if "미접속" in s["name"] or "관리자" in s["name"] else 1)
-    else:
-        pool.sort(key=lambda s: 0 if "장기" in s["name"] or "신규" in s["name"] else 1)
-    chosen = pool[:n]
-    out = []
-    for i, s in enumerate(chosen):
-        out.append({**s, "id": f"seg{i + 1}", "size": rng.randint(800, 6400),
-                    "score": rng.randint(76, 97)})
-    out.sort(key=lambda s: -s["score"])
-    return out
+    required_summary = {
+        "segment", "인원", "평균_이탈확률", "평균_활동일", "마지막접속후_평균일수",
+        "평균_해지횟수", "평균_결제금액",
+    }
+    required_customers = {"msno", "segment", "churn_prob"}
+    missing_summary = required_summary.difference(summary.columns)
+    missing_customers = required_customers.difference(customers.columns)
+    if missing_summary or missing_customers:
+        missing = sorted(missing_summary | missing_customers)
+        raise ValueError("필요한 CSV 컬럼이 없습니다: " + ", ".join(missing))
+
+    expected = (
+        customers.groupby("segment", as_index=False)["churn_prob"]
+        .sum()
+        .rename(columns={"churn_prob": "예상_이탈자"})
+    )
+    summary = summary.merge(expected, on="segment", how="left")
+    summary["예상_이탈자"] = summary["예상_이탈자"].fillna(0)
+    summary["display_name"] = summary["segment"].map(
+        lambda name: SEGMENT_UI.get(name, {}).get("display", name)
+    )
+    summary["description"] = summary["segment"].map(
+        lambda name: SEGMENT_UI.get(name, {}).get("description", "위험 고객 분석으로 분류된 집단입니다.")
+    )
+    summary["segment_id"] = summary["segment"].map(
+        lambda name: SEGMENT_UI.get(name, {}).get("id", name)
+    )
+
+    order = {name: i for i, name in enumerate(SEGMENT_UI)}
+    summary["_order"] = summary["segment"].map(order).fillna(len(order))
+    summary = summary.sort_values("_order").drop(columns="_order").reset_index(drop=True)
+    return summary, customers
 
 
 def match_css() -> str:
-    # 좌우 여백은 카드 하나하나가 margin:0 64px으로 직접 갖고, 감싸는 컨테이너에는
-    # 위아래 간격(gap)만 준다. 컨테이너에 좌우 padding까지 같이 주면 두 배로 밀리므로 넣지 않는다.
     return f"""
 <style>
     div[class*="st-key-kk-body"] {{ padding: 28px 0 64px !important; }}
     div[class*="st-key-kk-body"] > [data-testid="stVerticalBlock"] {{ gap: 0 !important; }}
-    .kk-context {{ margin: 0 64px 20px; }}
+    .kk-context {{ margin: 0 64px 18px; }}
 
-    /* 전략 요약 띠 */
-    .kk-recap {{ padding: 18px 24px; border-radius: 16px;
-                background: {T['tint']}; border: 1px solid {T['tint_border']};
-                display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }}
-    .kk-recap b {{ font-size: 16px; font-weight: 700; color: {T['text']}; }}
-    .kk-recap .kk-chip {{ padding: 6px 14px; border-radius: 10px; background: {T['surface']};
-                        border: 1px solid {T['tint_border']}; font-size: 13px; font-weight: 600; color: {T['accent']}; }}
+    .kk-recap {{ padding: 24px 26px; border-radius: 18px; background: {T['tint']};
+                border: 1px solid {T['tint_border']}; }}
+    .kk-recap-head {{ display: flex; align-items: baseline; justify-content: space-between;
+                      gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }}
+    .kk-recap-head b {{ font-size: 22px; font-weight: 700; color: {T['text']}; }}
+    .kk-recap-head span {{ font-size: 13px; color: {T['muted']}; }}
+    .kk-recap-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }}
+    .kk-recap-metric {{ min-height: 80px; padding: 14px 16px; border-radius: 13px;
+                        background: {T['surface']}; border: 1px solid {T['tint_border']};
+                        display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }}
+    .kk-recap-metric span {{ font-size: 12px; color: {T['subtle']}; }}
+    .kk-recap-metric strong {{ font-family: Rubik, 'IBM Plex Sans KR', sans-serif;
+                               font-size: 21px; color: {T['accent']}; }}
+    .kk .kk-guide {{ margin: 10px 2px 0 !important; font-size: 13px; line-height: 1.5; color: {T['subtle']}; }}
 
-    /* 유형 카드 (내용은 통째로 HTML로 그림) */
-    div[class*="st-key-kkseg-"] {{ margin: 0 64px 20px !important; padding: 26px 28px 40px !important;
-                                    width: calc(100% - 128px) !important; box-sizing: border-box !important;
-                                    border-radius: 20px !important; background: {T['surface']};
-                                    border: 1px solid {T['border']} !important; position: relative !important;}}
-    div[class*="st-key-kkseg-"] > div {{ border: none !important; }}
-    div[class*="st-key-kkseg-"] [data-testid="stVerticalBlock"] {{ gap: 0 !important; }}
-    div[class*="st-key-kkseg-"] [data-testid="stHorizontalBlock"] {{ align-items: start !important; }}
-    .kk-seg-badges {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }}
-    .kk-seg-score {{ display: inline-flex; align-items: baseline; gap: 4px; padding: 5px 12px; border-radius: 10px;
-                    background: {T['accent_soft']}; color: {T['accent']}; font-weight: 700; font-size: 13px; }}
-    .kk-seg-score b {{ font-family: Rubik, sans-serif; font-size: 16px; }}
-    .kk-seg-risk {{ padding: 5px 12px; border-radius: 10px; border: 1px solid {T['chip_border']};
-                    font-size: 13px; font-weight: 600; color: {T['badge_text']}; }}
-    .kk-seg-risk.high {{ border-color: transparent; background: {T['accent_soft']}; color: {T['accent']}; }}
-    .kk .kk-seg-name {{ font-size: 20px; font-weight: 700; line-height: 1.3; color: {T['text']}; margin: 0 0 10px !important; }}
-    .kk .kk-seg-trait {{ font-size: 15px; line-height: 1.5; color: {T['muted']}; margin: 0 0 14px !important; }}
-    .kk-seg-bar {{ height: 6px; border-radius: 999px; background: {T['tint_border']}; overflow: hidden; margin-bottom: 18px; }}
-    .kk-seg-bar span {{ display: block; height: 100%; border-radius: 999px; background: {T['accent']}; }}
-    .kk-meta {{ margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }}
-    .kk-meta div {{ display: flex; flex-direction: column; gap: 4px; }}
-    .kk-meta dt {{ margin: 0; font-size: 12px; color: {T['subtle']}; }}
-    .kk-meta dd {{ margin: 0; font-size: 14px; font-weight: 600; color: {T['text']}; }}
-    @media (max-width: 900px) {{ .kk-meta {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+    div[class*="st-key-kk-drag-area"] {{ margin: 0 64px 18px !important; }}
+    div[class*="st-key-kk-drag-area"] iframe {{ border-radius: 18px !important; }}
 
-    /* 스위치는 카드 안의 오른쪽 열에 자연스럽게 배치 */
-    div[class*="st-key-kk-toggle-"] [data-testid="stToggle"] label p {{
-        display: block !important;
-        color: {T['accent']} !important;
-        font-size: 13px !important;
-        font-weight: 700 !important;
-    }}
-    div[class*="st-key-kkseg-"] [data-testid="stToggle"] label {{ cursor: pointer; }}
-    .kk .kk-demo-note {{ margin: 8px 2px 0 !important; font-size: 12px; line-height: 1.4; color: {T['subtle']}; }}
+    .kk-selected-detail {{ margin: 0 64px 20px; padding: 26px 28px; border-radius: 20px;
+                          background: {T['surface']}; border: 1px solid {T['accent']}; }}
+    .kk-detail-badges {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }}
+    .kk-detail-badge {{ padding: 5px 12px; border-radius: 10px; background: {T['accent_soft']};
+                       color: {T['accent']}; font-size: 13px; font-weight: 700; }}
+    .kk-detail-badge.neutral {{ background: transparent; border: 1px solid {T['chip_border']};
+                               color: {T['badge_text']}; }}
+    .kk .kk-detail-title {{ font-size: 22px; font-weight: 700; line-height: 1.35;
+                           color: {T['text']}; margin: 0 0 9px !important; }}
+    .kk .kk-detail-description {{ font-size: 15px; line-height: 1.55; color: {T['muted']};
+                                 margin: 0 0 16px !important; }}
+    .kk-risk-label {{ display: flex; justify-content: space-between; gap: 12px; margin-bottom: 7px;
+                     font-size: 12px; color: {T['subtle']}; }}
+    .kk-risk-label b {{ color: {T['accent']}; font-size: 13px; }}
+    .kk-risk-bar {{ height: 7px; border-radius: 999px; background: {T['tint_border']};
+                    overflow: hidden; margin-bottom: 20px; }}
+    .kk-risk-bar span {{ display: block; height: 100%; border-radius: 999px; background: {T['accent']}; }}
+    .kk-detail-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }}
+    .kk-detail-metric {{ min-height: 78px; padding: 13px 15px; border-radius: 13px;
+                         background: {T['tint']}; border: 1px solid {T['tint_border']};
+                         display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }}
+    .kk-detail-metric span {{ font-size: 12px; color: {T['subtle']}; }}
+    .kk-detail-metric b {{ font-family: Rubik, 'IBM Plex Sans KR', sans-serif; font-size: 17px;
+                          font-weight: 700; color: {T['text']}; }}
+    .kk-reason {{ margin-top: 14px; padding: 13px 15px; border-radius: 12px;
+                  background: {T['accent_soft']}; color: {T['tip_text']}; font-size: 13px; line-height: 1.55; }}
+    .kk-empty-selection {{ margin: 0 64px 20px; min-height: 132px; padding: 28px 24px;
+                           border-radius: 20px; border: 1px dashed {T['tint_border']};
+                           background: {T['tint']}; display: flex; flex-direction: column;
+                           align-items: center; justify-content: center; text-align: center; gap: 8px; }}
+    .kk-empty-selection b {{ font-size: 17px; color: {T['text']}; }}
+    .kk-empty-selection span {{ font-size: 14px; line-height: 1.5; color: {T['muted']}; }}
 
-    /* 아래 이동 버튼 */
+    div[class*="st-key-kk-customer-table"] {{ width: calc(100% - 128px) !important;
+                                               margin: 0 64px 18px !important; }}
+    div[class*="st-key-kk-customer-table"] details {{ border: 1px solid {T['border']};
+                                                       border-radius: 14px; background: {T['surface']}; }}
+    div[class*="st-key-kk-customer-table"] summary {{ color: {T['text']}; font-weight: 600; }}
+
     div[class*="st-key-kk-actions"] {{ width: calc(100% - 128px) !important;
                                         box-sizing: border-box !important; margin: 8px 64px 0 !important; }}
     .st-key-kk-body [data-testid="stButtonContainer"]:has([data-testid="stBaseButton-primary"]),
-    .st-key-kk-body [data-testid="stButtonContainer"]:has([data-testid="stBaseButton-secondary"]) {{
-        height: 56px !important; }}
-    .st-key-kk-body [data-testid="stBaseButton-primary"], .st-key-kk-body [data-testid="stBaseButton-secondary"] {{
-        height: 56px !important; min-height: 56px !important; border-radius: 14px !important;
-        font-family: 'IBM Plex Sans KR', sans-serif !important; }}
-    .st-key-kk-body [data-testid="stBaseButton-primary"] {{ background: {T['accent']} !important; border: none !important;
-        color: {T['accent_text']} !important; }}
+    .st-key-kk-body [data-testid="stButtonContainer"]:has([data-testid="stBaseButton-secondary"]) {{ height: 56px !important; }}
+    .st-key-kk-body [data-testid="stBaseButton-primary"],
+    .st-key-kk-body [data-testid="stBaseButton-secondary"] {{ height: 56px !important; min-height: 56px !important;
+        border-radius: 14px !important; font-family: 'IBM Plex Sans KR', sans-serif !important; }}
+    .st-key-kk-body [data-testid="stBaseButton-primary"] {{ background: {T['accent']} !important;
+        border: none !important; color: {T['accent_text']} !important; }}
     .st-key-kk-body [data-testid="stBaseButton-secondary"] {{ background: transparent !important;
         border: 1px solid {T['secondary_border']} !important; color: {T['text']} !important; }}
-    .st-key-kk-body [data-testid="stBaseButton-primary"] p, .st-key-kk-body [data-testid="stBaseButton-secondary"] p {{
-        font-size: 17px !important; font-weight: 700 !important; color: inherit !important; }}
+    .st-key-kk-body [data-testid="stBaseButton-primary"] p,
+    .st-key-kk-body [data-testid="stBaseButton-secondary"] p {{ font-size: 17px !important;
+        font-weight: 700 !important; color: inherit !important; }}
 
     .kk-stepper {{ margin: 0; padding: 0; list-style: none; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }}
-    .kk-stepper li.s {{ display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 8px; border-radius: 999px;
-                        border: 1px solid {T['tint_border']}; font-size: 14px; color: {T['subtle']}; }}
-    .kk-stepper li.s.on {{ border-color: transparent; background: {T['accent_soft']}; color: {T['accent']}; font-weight: 700; }}
-    .kk-stepper li.s i {{ font-style: normal; width: 26px; height: 26px; border-radius: 999px; background: {T['surface']};
-                        font-family: Rubik, sans-serif; font-size: 12px; display: flex; align-items: center; justify-content: center; }}
+    .kk-stepper li.s {{ display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 8px;
+                        border-radius: 999px; border: 1px solid {T['tint_border']};
+                        font-size: 14px; color: {T['subtle']}; }}
+    .kk-stepper li.s.on {{ border-color: transparent; background: {T['accent_soft']};
+                           color: {T['accent']}; font-weight: 700; }}
+    .kk-stepper li.s i {{ font-style: normal; width: 26px; height: 26px; border-radius: 999px;
+                         background: {T['surface']}; font-family: Rubik, sans-serif; font-size: 12px;
+                         display: flex; align-items: center; justify-content: center; }}
     .kk-stepper li.s.on i {{ background: {T['accent']}; color: {T['accent_text']}; }}
     .kk-stepper li.l {{ width: 12px; height: 1px; background: {T['chip_border']}; }}
 
+    @media (max-width: 900px) {{
+        .kk-recap-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+        .kk-detail-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    }}
     @media (max-width: 1100px) {{
         div[class*="st-key-kk-body"] {{ padding: 24px 0 48px !important; }}
-        .kk-context {{ margin: 0 16px 20px; }}
-        div[class*="st-key-kkseg-"] {{ width: calc(100% - 32px) !important; margin: 0 16px 20px !important; }}
-        div[class*="st-key-kk-actions"] {{ width: calc(100% - 32px) !important; margin: 8px 16px 0 !important; }}
+        .kk-context, .kk-selected-detail, .kk-empty-selection {{ margin-left: 16px; margin-right: 16px; }}
+        div[class*="st-key-kk-drag-area"] {{ margin-left: 16px !important; margin-right: 16px !important; }}
+        div[class*="st-key-kk-customer-table"], div[class*="st-key-kk-actions"] {{
+            width: calc(100% - 32px) !important; margin-left: 16px !important; margin-right: 16px !important; }}
+    }}
+    @media (max-width: 580px) {{
+        .kk-recap-grid {{ grid-template-columns: 1fr; }}
+        .kk-detail-grid {{ grid-template-columns: 1fr; }}
     }}
 </style>"""
+
+
+def sortable_css() -> str:
+    """streamlit-sortables iframe 내부에 적용되는 현재 테마용 스타일입니다."""
+    return f"""
+    .sortable-component {{
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+        padding: 0;
+        background: transparent;
+        color: {T['text']};
+        font-family: 'IBM Plex Sans KR', sans-serif;
+    }}
+    .sortable-container {{
+        width: 100%;
+        min-width: 0;
+        min-height: 0;
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid {T['border']};
+        background: {T['surface']};
+    }}
+    .sortable-container-header {{
+        margin: 0 0 14px;
+        padding: 0 2px 12px;
+        border-bottom: 1px solid {T['line']};
+        color: {T['text']};
+        font-size: 18px;
+        font-weight: 700;
+    }}
+    .sortable-container-body {{
+        min-height: 0;
+        padding: 2px;
+        border-radius: 12px;
+        background: transparent;
+    }}
+    .sortable-container:first-child .sortable-container-body {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }}
+    .sortable-container:last-child {{
+        min-height: 142px;
+        border-style: dashed;
+        border-color: {T['accent']};
+        background: {T['accent_soft']};
+    }}
+    .sortable-container:last-child .sortable-container-body {{
+        min-height: 78px;
+    }}
+    .sortable-container:last-child .sortable-container-body:not(:has(.sortable-item))::before {{
+        content: "위 고객 카드 중 하나를 이곳으로 드래그하세요";
+        min-height: 76px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 18px;
+        color: {T['muted']};
+        font-size: 14px;
+        font-weight: 500;
+        text-align: center;
+        pointer-events: none;
+    }}
+    .sortable-item, .sortable-item:hover {{
+        width: 100%;
+        min-height: 132px;
+        margin: 0;
+        padding: 17px 18px;
+        border-radius: 14px;
+        border: 1px solid {T['tint_border']};
+        background: {T['tint']};
+        color: {T['text']};
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.58;
+        white-space: pre-line;
+        box-shadow: none;
+        cursor: grab;
+    }}
+    .sortable-container:last-child .sortable-item {{ min-height: 104px; }}
+    .sortable-item:hover {{ border-color: {T['accent']}; }}
+    @media (max-width: 720px) {{
+        .sortable-container:first-child .sortable-container-body {{ grid-template-columns: 1fr; }}
+        .sortable-item {{ min-height: 116px; }}
+    }}
+    """
 
 
 def head_html() -> str:
@@ -167,51 +305,102 @@ def head_html() -> str:
     return f"""
 <section class="kk-page" style="padding-bottom:0; flex-direction:row; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:24px">
     <div style="display:flex; flex-direction:column; gap:12px">
-        <h1 class="kk-h2 kk-title" style="font-size:40px">고객 매칭</h1>
-        <p class="kk-desc" style="font-size:17px">전략에 맞을 것으로 보이는 고객 유형이에요. 실험에 쓸 유형을 골라 주세요.</p>
+        <h1 class="kk-h2 kk-title" style="font-size:40px">위험 고객 선택</h1>
+        <p class="kk-desc" style="font-size:17px">고객 집단을 선택 영역으로 옮기면 실제 분석 결과를 확인할 수 있어요.</p>
     </div>
     <ol class="kk-stepper" aria-label="진행 단계">{''.join(steps)}</ol>
 </section>"""
 
 
-def recap_html(sv: dict) -> str:
-    def chip(text):
-        return f'<span class="kk-chip">{escape(str(text))}</span>'
-    parts = [chip(sv["kind"])] if sv.get("kind") else []
-    if sv.get("goal"):
-        parts.append(chip(sv["goal"]))
-    if sv.get("plans"):
-        parts.append(chip("요금제 " + "·".join(sv["plans"])))
-    if sv.get("period") and sv["period"] != "전체":
-        parts.append(chip(sv["period"]))
-    if sv.get("last") and sv["last"] != "전체":
-        parts.append(chip(sv["last"]))
-    return f'<div class="kk kk-recap"><b>‘{escape(sv["name"])}’ 전략 기준</b>{"".join(parts)}</div>'
-
-
-def segment_badges_html(seg: dict) -> str:
-    risk_cls = "high" if seg["risk"] in ("높음", "매우 높음") else ""
-    return f'''<div class="kk kk-seg-badges">
-    <span class="kk-seg-score">적합도 <b>{seg['score']}</b>%</span>
-    <span class="kk-seg-risk {risk_cls}">이탈 위험도 {escape(seg['risk'])}</span>
-    </div>'''
-
-
-def segment_html(seg: dict) -> str:
-    meta = [("예상 인원", f"약 {seg['size']:,}명"), ("이탈 위험도", seg["risk"]),
-            ("구독 기간", seg["tenure"]), ("마지막 접속", seg["last"])]
-    meta_html = "".join(f"<div><dt>{escape(a)}</dt><dd>{escape(b)}</dd></div>" for a, b in meta)
+def recap_html(summary: pd.DataFrame, customers: pd.DataFrame) -> str:
+    risky = len(customers)
+    classified = int(customers["segment"].isin(SEGMENT_UI).sum())
+    threshold = 28.24
     return f"""
-<div class="kk">
-    <h3 class="kk-seg-name">{escape(seg['name'])}</h3>
-    <p class="kk-seg-trait">{escape(seg['trait'])}</p>
-    <div class="kk-seg-bar"><span style="width:{seg['score']}%"></span></div>
-    <dl class="kk-meta">{meta_html}</dl>
+<div class="kk kk-recap">
+    <div class="kk-recap-head">
+        <b>위험 고객 분류 결과</b>
+        <span>이탈 위험 고객을 거래·결제·이용 행동 기준으로 군집화(K-Means)했습니다.</span>
+    </div>
+    <div class="kk-recap-grid">
+        <div class="kk-recap-metric"><span>전체 위험 고객</span><strong>{risky:,}명</strong></div>
+        <div class="kk-recap-metric"><span>{len(summary)}개 군집 분류 완료</span><strong>{classified:,}명</strong></div>
+        <div class="kk-recap-metric"><span>위험 판단 기준</span><strong>{threshold:.2f}% 이상</strong></div>
+        <div class="kk-recap-metric"><span>위험 고객 군집</span><strong>{len(summary)}개</strong></div>
+    </div>
+</div>
+<p class="kk kk-guide">아래 고객 카드 중 한 개를 실험 대상 영역으로 드래그하세요. 선택하면 그 아래에 집단 상세정보가 표시됩니다.</p>"""
+
+
+def drag_label(row: pd.Series) -> str:
+    return (
+        f"{row['display_name']}\n"
+        f"{row['description']}\n"
+        f"고객 {int(row['인원']):,}명 · 평균 이탈확률 {float(row['평균_이탈확률']) * 100:.1f}%\n"
+        f"평균 활동일 {float(row['평균_활동일']):.1f}일 · 마지막 접속 {float(row['마지막접속후_평균일수']):.1f}일 전"
+    )
+
+
+def selection_detail_html(row: pd.Series) -> str:
+    probability = float(row["평균_이탈확률"])
+    metrics = [
+        ("고객 수", f"{int(row['인원']):,}명"),
+        ("현재 예상 이탈자", f"약 {round(float(row['예상_이탈자'])):,}명"),
+        ("평균 활동일", f"{float(row['평균_활동일']):.1f}일"),
+        ("마지막 접속", f"{float(row['마지막접속후_평균일수']):.1f}일 전"),
+        ("평균 해지 횟수", f"{float(row['평균_해지횟수']):.2f}회"),
+        ("평균 결제금액", f"{float(row['평균_결제금액']):,.1f}"),
+    ]
+    metric_html = "".join(
+        f'<div class="kk-detail-metric"><span>{escape(label)}</span><b>{escape(value)}</b></div>'
+        for label, value in metrics
+    )
+    return f"""
+<section class="kk kk-selected-detail">
+    <div class="kk-detail-badges">
+        <span class="kk-detail-badge">평균 이탈확률 {probability * 100:.1f}%</span>
+        <span class="kk-detail-badge neutral">행동 특성 군집 (K-Means)</span>
+    </div>
+    <h2 class="kk-detail-title">{escape(str(row['display_name']))}</h2>
+    <p class="kk-detail-description">{escape(str(row['description']))}</p>
+    <div class="kk-risk-label"><span>집단 평균 이탈확률</span><b>{probability * 100:.1f}%</b></div>
+    <div class="kk-risk-bar" role="progressbar" aria-label="평균 이탈확률"
+         aria-valuenow="{probability * 100:.1f}" aria-valuemin="0" aria-valuemax="100">
+        <span style="width:{min(max(probability * 100, 0), 100):.1f}%"></span>
+    </div>
+    <div class="kk-detail-grid">{metric_html}</div>
+    <div class="kk-reason"><b>분류 기준</b> · 이탈 위험 고객의 거래·구독, 결제, 서비스 이용 행동 17개 지표를 표준화한 뒤 K-Means로 4개 군집으로 나눴습니다.</div>
+</section>"""
+
+
+def empty_selection_html() -> str:
+    return """
+<div class="kk kk-empty-selection">
+    <b>아직 선택한 고객 집단이 없어요.</b>
+    <span>위험 고객 집단에서 카드 하나를 끌어 이곳으로 옮기면<br>고객 수, 이탈확률, 활동과 해지 특성이 표시됩니다.</span>
 </div>"""
 
 
-def empty_state_html() -> str:
-    return '<div class="kk-empty">아직 설계된 전략이 없어요. 먼저 마케팅 설계에서 전략을 만들어 주세요.</div>'
+def selected_record(row: pd.Series) -> dict:
+    """다음 페이지와 기존 실험 페이지에서 함께 사용할 세션 저장 형식입니다."""
+    return {
+        "id": str(row["segment_id"]),
+        "segment": str(row["segment"]),
+        "name": str(row["display_name"]),
+        "trait": str(row["description"]),
+        "size": int(row["인원"]),
+        "score": round(float(row["평균_이탈확률"]) * 100),
+        "churn_prob": float(row["평균_이탈확률"]),
+        "expected_churn": float(row["예상_이탈자"]),
+        "activity_days": float(row["평균_활동일"]),
+        "days_since_last_log": float(row["마지막접속후_평균일수"]),
+        "cancel_count": float(row["평균_해지횟수"]),
+        "avg_payment": float(row["평균_결제금액"]),
+        # 기존 실험 화면에서 참조할 수 있는 호환용 필드
+        "risk": f"{float(row['평균_이탈확률']) * 100:.1f}%",
+        "last": f"{float(row['마지막접속후_평균일수']):.1f}일 전",
+        "tenure": "집단 상세 참조",
+    }
 
 
 def matching_page() -> None:
@@ -219,71 +408,97 @@ def matching_page() -> None:
     st.markdown(compact(match_css()), unsafe_allow_html=True)
     st.markdown(compact(f'<div class="kk">{head_html()}</div>'), unsafe_allow_html=True)
 
-    strategy = ss.get("strategy")
     with st.container(key="kk-body"):
-        if not strategy:
-            strategy = {"name": "장기 미접속", "kind": "콘텐츠 추천", "goal": "이탈 방지",
-                        "plans": ["개인", "학생"], "period": "전체", "last": "14일 이상 미접속"}
-            preview = True
+        try:
+            summary, customers = load_segment_data(str(SUMMARY_PATH), str(SEGMENTS_PATH))
+        except FileNotFoundError:
+            st.error(
+                "위험 고객 분류 파일을 찾지 못했습니다. 먼저 실험 노트북을 실행해 "
+                "data/processed/risk_segments.csv와 risk_segment_summary.csv를 생성해 주세요."
+            )
+            st.stop()
+        except ValueError as error:
+            st.error(str(error))
+            st.stop()
+
+        st.markdown(
+            compact(f'<div class="kk kk-context">{recap_html(summary, customers)}</div>'),
+            unsafe_allow_html=True,
+        )
+
+        label_to_segment = {drag_label(row): row["segment"] for _, row in summary.iterrows()}
+        labels = list(label_to_segment)
+
+        if sort_items is None:
+            st.warning("드래그 기능을 사용하려면 프로젝트 환경에 streamlit-sortables를 설치해 주세요.")
+            selected_label = st.selectbox(
+                "위험 고객 집단",
+                options=[""] + labels,
+                format_func=lambda value: value.splitlines()[0] if value else "고객 집단을 선택하세요",
+            )
+            selected_labels = [selected_label] if selected_label else []
         else:
-            preview = False
+            with st.container(key="kk-drag-area"):
+                result = sort_items(
+                    [
+                        {"header": "위험 고객 집단 · 카드를 선택해 드래그하세요", "items": labels},
+                        {"header": "실험 대상 고객 집단", "items": []},
+                    ],
+                    multi_containers=True,
+                    direction="vertical",
+                    custom_style=sortable_css(),
+                )
+            selected_labels = result[1]["items"] if result and len(result) > 1 else []
 
-        note = ("화면 예시 · 적합도, 예상 인원, 위험도는 실제 데이터와 모델에 연결되기 전까지 예시 값입니다." if preview
-                else "현재 고객 유형과 수치는 시연용 예시입니다. 실제 모델 및 고객 데이터 연결 후 교체해야 합니다.")
-        st.markdown(compact(f'<div class="kk kk-context">{recap_html(strategy)}<p class="kk-demo-note">{note}</p></div>'),
-                    unsafe_allow_html=True)
+        valid_selection = len(selected_labels) == 1
+        selected_row = None
+        if len(selected_labels) > 1:
+            st.error("고객 집단은 한 번에 하나만 선택할 수 있어요. 선택 영역에 한 집단만 남겨 주세요.")
+        elif valid_selection:
+            selected_segment = label_to_segment.get(selected_labels[0])
+            matched = summary.loc[summary["segment"] == selected_segment]
+            if not matched.empty:
+                selected_row = matched.iloc[0]
+                st.markdown(compact(selection_detail_html(selected_row)), unsafe_allow_html=True)
 
-        if preview:
-            segments = [
-                {**SEGMENT_POOL[0], "id": "preview1", "score": 92, "size": 2061},
-                {**SEGMENT_POOL[3], "id": "preview2", "score": 87, "size": 802},
-                {**SEGMENT_POOL[1], "id": "preview3", "score": 83, "size": 1954},
-            ]
-            ss.setdefault("sel_preview1", True)
-        else:
-            # 전략이 바뀌면(=마케팅 설계를 새로 하고 왔으면) 예전에 눌러놨던 선택 토글 값이
-            # 남아있지 않도록 같이 초기화해요. 세그먼트 id가 seg1/seg2/seg3처럼 고정이라
-            # 그냥 두면 이전 전략에서 켜뒀던 토글이 새 전략에도 그대로 켜진 채로 보여요.
-            sig = (strategy.get("name"), strategy.get("goal"), strategy.get("kind"))
-            if ss.get("kk_matching_sig") != sig:
-                ss["kk_matching_sig"] = sig
-                for old_seg in ss.get("matching_candidates", []):
-                    ss.pop(f"sel_{old_seg['id']}", None)
-                ss["matching_candidates"] = pick_segments(strategy)
-            segments = ss["matching_candidates"]
-
-        selected_ids = []
-        for seg in segments:
-            with st.container(key=f"kkseg-{seg['id']}"):
-                badges_col, toggle_col = st.columns([10, 2], vertical_alignment="top")
-                with badges_col:
-                    st.markdown(compact(segment_badges_html(seg)), unsafe_allow_html=True)
-                with toggle_col:
-                    with st.container(key=f"kk-toggle-{seg['id']}", horizontal=True, horizontal_alignment="right"):
-                        on = st.toggle("선택", key=f"sel_{seg['id']}")
-                st.markdown(compact(segment_html(seg)), unsafe_allow_html=True)
-            if on:
-                selected_ids.append(seg["id"])
-
+                segment_customers = (
+                    customers.loc[customers["segment"] == selected_segment, ["msno", "churn_prob"]]
+                    .sort_values("churn_prob", ascending=False)
+                    .head(5)
+                    .copy()
+                )
+                segment_customers["고객 ID"] = segment_customers["msno"].map(
+                    lambda value: f"{str(value)[:7]}…{str(value)[-4:]}"
+                )
+                segment_customers["이탈확률"] = segment_customers["churn_prob"].map(
+                    lambda value: f"{float(value) * 100:.1f}%"
+                )
+                with st.container(key="kk-customer-table"):
+                    with st.expander("이탈확률이 높은 고객 5명 보기"):
+                        st.dataframe(
+                            segment_customers[["고객 ID", "이탈확률"]],
+                            use_container_width=True,
+                            hide_index=True,
+                        )
         with st.container(key="kk-actions"):
-            msg = st.empty()
-            _, b1, b2 = st.columns([4.3, 0.8, 1.4], gap="small")
-            back = b1.button("이전 단계로", key="m_back", use_container_width=True)
-            go = b2.button("선택한 유형으로 실험 만들기 →", key="m_go", type="primary", use_container_width=True)
+            _, back_col, next_col = st.columns([4.3, 0.8, 1.5], gap="small")
+            back = back_col.button("이전 단계로", key="m_back", use_container_width=True)
+            go = next_col.button(
+                "선택한 집단으로 실험 만들기 →",
+                key="m_go",
+                type="primary",
+                use_container_width=True,
+                disabled=not (valid_selection and selected_row is not None),
+            )
 
     if back:
         st.switch_page("pages/1_marketing.py")
-    if go:
-        if preview:
-            msg.error("먼저 마케팅 설계에서 전략을 저장해 주세요. 현재 표시된 고객 유형은 시안 예시입니다.")
-        elif not selected_ids:
-            msg.error("실험에 쓸 고객 유형을 하나 이상 선택해 주세요.")
-        else:
-            ss["matched_segments"] = [s for s in segments if s["id"] in selected_ids]
-            st.switch_page("pages/3_experiments.py")
+    if go and selected_row is not None:
+        record = selected_record(selected_row)
+        ss["matched_segment"] = record
+        ss["matched_segments"] = [record]
+        st.switch_page("pages/3_experiments.py")
 
-
-# ─────────────────────────────────────────────
 
 ui.render_header()
 matching_page()
