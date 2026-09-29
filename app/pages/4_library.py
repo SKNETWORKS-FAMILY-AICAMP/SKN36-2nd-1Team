@@ -19,6 +19,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import ui  # noqa: E402
 import store  # noqa: E402 — 새로고침·재시작해도 라이브러리가 안 사라지게 파일에서 불러와요
 from ui import compact
+import json  # noqa: E402
+from common.db import load_plans  # noqa: E402
+from common.db import PLAN_STATUSES, load_plans, update_plan_status  # noqa: E402
+from common.report import make_plan_pdf  # noqa: E402
 
 st.set_page_config(page_title="라이브러리 · KKeeper", layout="wide", initial_sidebar_state="collapsed")
 T = ui.init("library")
@@ -140,6 +144,88 @@ def strategy_card_html(item: dict) -> str:
 def empty_state_html() -> str:
     return '<div class="kk-empty">아직 검증된 전략이 없어요. 실험 관리에서 실험을 만들고 결과를 입력하면 여기에 전략 카드로 쌓여요.</div>'
 
+def plan_card_html(p) -> str:
+    before, after = p["churn_rate_before"] * 100, p["churn_rate_after"] * 100
+    badge = (f'<span style="flex-shrink:0; padding:5px 12px; border-radius:999px; '
+             f'background:{T["accent_soft"]}; color:{T["accent"]}; font-size:12px; font-weight:700">'
+             f'{escape(str(p["status"]))}</span>')
+    return f"""<div class="kk">
+  <div class="kk-lib-top">
+    <h3 class="kk-lib-name">{escape(str(p['title']))}</h3>
+    {badge}
+  </div>
+  <p class="kk-lib-target">적용 대상 · {escape(str(p['segment_name']))} · {escape(str(p['marketing_name']))}</p>
+  <div class="kk-lib-divider"></div>
+  <div class="kk-lib-stats">
+    <div>
+      <div class="kk-lib-stat-label">예상 이탈률</div>
+      <div class="kk-lib-stat-val" style="color:{T['text']}">{before:.1f}<span class="kk-lib-stat-unit">% →</span> {after:.1f}<span class="kk-lib-stat-unit">%</span></div>
+    </div>
+    <div style="text-align:right">
+      <div class="kk-lib-stat-label">예상 감소</div>
+      <div class="kk-lib-stat-val" style="color:{T['accent']}">{p['reduced_customers']:,.1f}<span class="kk-lib-stat-unit">명</span></div>
+    </div>
+  </div>
+</div>"""
+
+@st.dialog("계획 상세", width="large")
+def show_plan_detail(p: dict) -> None:
+    goals = json.loads(p["goals"]) if p["goals"] else {}
+    before, after = p["churn_rate_before"] * 100, p["churn_rate_after"] * 100
+
+    st.markdown(f"### {p['title']}")
+    st.caption(f"상태: {p['status']} · 저장일 {p['created_at']} · 계획 번호 #{p['id']}")
+
+    st.markdown("#### 대상과 전략")
+    st.markdown(
+        f"- **군집** · {p['segment_name']} ({int(p['customer_count'] or 0):,}명)\n"
+        f"- **핵심 목표** · {p.get('cluster_goal') or '-'}\n"
+        f"- **전략** · {p['marketing_name']}"
+    )
+
+    st.markdown("#### 목표 설정")
+    goal_rows = [{"행동 목표": k, "목표값": f"{v}%"} for k, v in goals.items() if v]
+    if goal_rows:
+        st.dataframe(goal_rows, hide_index=True, use_container_width=True)
+    else:
+        st.caption("설정한 목표가 없어요.")
+
+    st.markdown("#### 예상 결과")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("현재 예상 이탈률", f"{before:.1f}%")
+    c2.metric("목표 달성 시", f"{after:.1f}%", f"{after - before:+.2f}%p", delta_color="inverse")
+    c3.metric("예상 감소 인원", f"{p['reduced_customers']:,.1f}명")
+    st.caption(
+        f"예상 이탈자 {p['expected_churn_before']:,.1f}명 → {p['expected_churn_after']:,.1f}명 "
+        "· 모델 기반 What-if 예측"
+    )
+
+    st.markdown("#### 내용")
+    st.write(p["description"] or "(작성한 내용 없음)")
+
+def render_plans() -> None:
+    try:
+        plans = load_plans()
+    except Exception as error:
+        st.warning(f"저장한 계획을 불러오지 못했습니다: {error}")
+        return
+
+    st.markdown(
+        compact(f'<div class="kk"><h2 class="kk-h2">저장한 계획 ({len(plans)})</h2>'
+                f'<p class="kk-desc">목표 시뮬레이션에서 저장한, 아직 실행 전인 계획이에요.</p></div>'),
+        unsafe_allow_html=True,
+    )
+    if plans.empty:
+        st.caption("아직 저장한 계획이 없어요.")
+        return
+
+    cols = st.columns(2, gap="medium")
+    for i, (_, p) in enumerate(plans.iterrows()):
+        with cols[i % 2]:
+            with st.container(key=f"kkcard-lib-plan-{p['id']}"):
+                st.markdown(compact(plan_card_html(p)), unsafe_allow_html=True)
+                if st.button("상세 보기", key=f"plan_detail_{p['id']}", use_container_width=True):
+                    show_plan_detail(p.to_dict())
 
 def library_page() -> None:
     ss = st.session_state
@@ -149,6 +235,8 @@ def library_page() -> None:
     st.markdown(compact(f'<div class="kk">{head_html()}</div>'), unsafe_allow_html=True)
 
     with st.container(key="kk-body"):
+        render_plans()
+        st.markdown(compact('<div class="kk"><h2 class="kk-h2">검증된 전략</h2></div>'), unsafe_allow_html=True)
         if not library:
             st.markdown(compact(f'<div class="kk">{empty_state_html()}</div>'), unsafe_allow_html=True)
             with st.container(key="kk-empty-actions"):

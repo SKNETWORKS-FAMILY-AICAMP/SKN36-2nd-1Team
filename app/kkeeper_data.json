@@ -145,7 +145,7 @@
       "ratio": 50,
       "exp_n": 744,
       "ctrl_n": 743,
-      "status": "진행중",
+      "status": "결과 입력 대기",
       "result": null
     },
     {
@@ -171,7 +171,7 @@
       "ratio": 50,
       "exp_n": 744,
       "ctrl_n": 743,
-      "status": "진행중",
+      "status": "결과 입력 대기",
       "result": null
     },
     {
@@ -243,7 +243,7 @@
       "ratio": 50,
       "exp_n": 2440,
       "ctrl_n": 2441,
-      "status": "준비중",
+      "status": "결과 입력 대기",
       "result": null
     }
   ],
