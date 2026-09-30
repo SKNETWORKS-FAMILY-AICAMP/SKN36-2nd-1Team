@@ -11,8 +11,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-
-
+from scipy.stats import norm
 from sklearn.model_selection import train_test_split
 
 
@@ -29,6 +28,10 @@ def split_ab(customers, seed=42, n_bins=5):
     seed   : 나누는 결과를 고정하는 값. 바꾸면 다른 조합으로 나뉨
     n_bins : 이탈확률을 몇 구간으로 나눌지
     """
+    if len(customers) < 2:
+        raise ValueError("그룹 분할에는 고객이 2명 이상 필요합니다.")
+    if len(customers) < n_bins * 2:
+        return train_test_split(customers, test_size=0.5, random_state=seed)
     bins = pd.qcut(customers["churn_prob"].rank(method="first"), n_bins, labels=False)
     group_a, group_b = train_test_split(customers, test_size=0.5, stratify=bins, random_state=seed)
     return group_a, group_b
@@ -47,7 +50,10 @@ def balance_table(group_a, group_b):
     """두 그룹의 주요 지표 평균과 표준화 차이를 비교한다."""
     rows = []
     for col, label in BALANCE_COLS.items():
-        a, b = group_a[col], group_b[col]
+        if col not in group_a.columns:
+            continue
+        a = pd.to_numeric(group_a[col], errors="coerce")
+        b = pd.to_numeric(group_b[col], errors="coerce")
         pooled = np.sqrt((a.var() + b.var()) / 2)
         smd = (a.mean() - b.mean()) / pooled if pooled > 0 else 0.0
         rows.append({"지표": label, "그룹 A": a.mean(), "그룹 B": b.mean(), "표준화 차이": smd})
@@ -439,144 +445,38 @@ def simulate_segment(
 
 
 
-def lever_eligible(customers):
-    """레버마다 적용 대상이 되는 고객 수"""
-    return {
-        "auto_renew_on": int((customers["last_auto_renew"] == 0).sum()),
-        "cancel_stop": int((customers["last_is_cancel"] == 1).sum()),
-        "activity_up": int((customers["activity_days"] > 0).sum()),
-        "revisit": int((customers["days_since_last_log"] > 0).sum()),
-    }
-
-
-def apply_levers(X, levers, seed=42):
-    """레버 설정대로 이탈 모델 입력 피처를 바꾼다."""
-    X = X.copy()
-    rng = np.random.default_rng(seed)
-
-    def flip(cols, from_v, to_v, pct):
-        idx = X.index[X[cols[0]] == from_v]
-        n = int(round(len(idx) * pct / 100))
-        if n > 0:
-            chosen = rng.choice(idx, size=n, replace=False)
-            for c in cols:
-                if c in X:
-                    X.loc[chosen, c] = to_v
-
-    if levers.get("auto_renew_on"):
-        flip(["last_auto_renew"], 0, 1, levers["auto_renew_on"])
-    if levers.get("cancel_stop"):
-        flip(["last_is_cancel", "cancel_on_last_date"], 1, 0, levers["cancel_stop"])
-
-    if levers.get("activity_up"):
-        f = 1 + levers["activity_up"] / 100
-        for c in ["total_secs", "total_num_100", "total_num_unq"]:
-            X[c] = X[c] * f
-        X["activity_days"] = (X["activity_days"] * f).clip(upper=90).round()
-        d = X["activity_days"].replace(0, np.nan)
-        X["avg_daily_secs"] = X["total_secs"] / d
-        X["avg_daily_complete"] = X["total_num_100"] / d
-        X["avg_daily_unq"] = X["total_num_unq"] / d
-
-    if levers.get("revisit"):
-        X["days_since_last_log"] = (X["days_since_last_log"] * (1 - levers["revisit"] / 100)).round()
-
-    return X
-
-
-WHATIF_METRICS = {
-    "last_auto_renew": "자동갱신 켬 비율",
-    "last_is_cancel": "마지막 거래 해지 비율",
-    "activity_days": "평균 활동일",
-    "days_since_last_log": "마지막 접속 후 평균 일수",
-}
-
-
-def whatif_customers(customers, levers, churn_bundle, seed=42):
-
+def whatif_probs(customers, levers, churn_bundle, seed=42):
+    """고객별 현재 이탈확률과 행동 목표를 적용한 뒤의 예상 이탈확률."""
     model, feats = churn_bundle["model"], churn_bundle["features"]
     X_before = customers[feats]
     X_after = apply_levers(X_before, levers, seed)
-
     change = model.predict_proba(X_after)[:, 1] - model.predict_proba(X_before)[:, 1]
-    before = customers["churn_prob"].to_numpy()
+    before = customers["churn_prob"].to_numpy(dtype=float)
     after = np.clip(before + change, 0, 1)
+    return before, after, change, X_before, X_after
 
+
+def whatif_customers(customers, levers, churn_bundle, seed=42):
+    """행동 목표를 달성했을 때 이탈률이 어떻게 바뀌는지 모델로 계산 (가설용)."""
+    before, after, change, X_before, X_after = whatif_probs(customers, levers, churn_bundle, seed)
+    metrics = {c: label for c, label in WHATIF_METRICS.items() if c in X_before.columns}
     behavior = pd.DataFrame({
-        "행동 지표": list(WHATIF_METRICS.values()),
-        "현재": [X_before[c].mean() for c in WHATIF_METRICS],
-        "목표 적용 후": [X_after[c].mean() for c in WHATIF_METRICS],
+        "행동 지표": list(metrics.values()),
+        "현재": [float(pd.to_numeric(X_before[c], errors="coerce").mean()) for c in metrics],
+        "목표 적용 후": [float(pd.to_numeric(X_after[c], errors="coerce").mean()) for c in metrics],
     })
-
     return {
         "summary": {
             "고객수": len(customers),
-            "현재_평균이탈확률": before.mean(),
-            "목표후_평균이탈확률": after.mean(),
-            "현재_예상이탈자": before.sum(),
-            "목표후_예상이탈자": after.sum(),
-            "예상_감소인원": before.sum() - after.sum(),
-            "확률상승_고객비율": float((change > 1e-9).mean()),
+            "현재_평균이탈확률": float(before.mean()) if len(before) else 0.0,
+            "목표후_평균이탈확률": float(after.mean()) if len(after) else 0.0,
+            "현재_예상이탈자": float(before.sum()),
+            "목표후_예상이탈자": float(after.sum()),
+            "예상_감소인원": float(before.sum() - after.sum()),
+            "확률상승_고객비율": float((change > 1e-9).mean()) if len(change) else 0.0,
         },
         "behavior": behavior,
     }
-
-
-
-CLUSTER_GOALS = {
-    "저활동·단기 구독형": "이용 활성화",
-    "반복 거래·취소 위험형": "즉각적 이탈 방어",
-    "장기 플랜·고결제 고위험형": "고가치 고객 유지",
-    "장기 관계·고빈도 거래형": "충성도 강화",
-}
-
-CLUSTER_MARKETING = {
-    "저활동·단기 구독형": [
-        {"id": "reco_playlist", "name": "개인화 추천·플레이리스트",
-         "desc": "최근 이용 콘텐츠 기반으로 음악과 플레이리스트를 추천해 청취를 늘립니다.",
-         "levers": {"activity_up": 15}},
-        {"id": "revisit_msg", "name": "미접속 재방문 유도 메시지",
-         "desc": "일정 기간 접속하지 않으면 재방문을 유도하는 메시지를 보냅니다.",
-         "levers": {"revisit": 30}},
-        {"id": "mission", "name": "이용 유도 미션 프로모션",
-         "desc": "연속 이용·신규 콘텐츠 청취 미션으로 이용 습관을 만듭니다.",
-         "levers": {"activity_up": 10, "revisit": 20}},
-    ],
-    "반복 거래·취소 위험형": [
-        {"id": "retention_offer", "name": "취소 시점 리텐션 오퍼",
-         "desc": "취소를 시도할 때 할인·무료 이용기간 연장을 즉시 제안합니다.",
-         "levers": {"cancel_stop": 30}},
-        {"id": "pause_plan", "name": "일시정지·저가 플랜 전환",
-         "desc": "취소 화면에서 해지 대신 일시정지나 저가 플랜을 제안합니다.",
-         "levers": {"cancel_stop": 20, "revisit": 15}},
-        {"id": "reason_offer", "name": "취소 사유별 맞춤 혜택",
-         "desc": "취소 사유(가격·콘텐츠·이용경험)를 수집해 원인에 맞는 혜택을 제공합니다.",
-         "levers": {"cancel_stop": 25}},
-    ],
-    "장기 플랜·고결제 고위험형": [
-        {"id": "early_renewal", "name": "선제적 갱신·장기구독 할인",
-         "desc": "이탈 위험이 높아지는 시점에 갱신 혜택과 장기구독 할인을 제안합니다.",
-         "levers": {"auto_renew_on": 20}},
-        {"id": "vip", "name": "VIP·독점 콘텐츠 혜택",
-         "desc": "고결제 고객에게 독점·선공개 콘텐츠 등 차별화된 보상을 제공합니다.",
-         "levers": {"auto_renew_on": 10, "activity_up": 5}},
-        {"id": "resubscribe", "name": "만료 전 재구독 캠페인",
-         "desc": "이용권 만료일 이전에 개인화된 재구독·갱신 캠페인을 집중 실행합니다.",
-         "levers": {"auto_renew_on": 15}},
-    ],
-    "장기 관계·고빈도 거래형": [
-        {"id": "loyalty", "name": "장기 고객 로열티 리워드",
-         "desc": "가입 기간과 이용 실적에 따른 보상으로 관계를 유지합니다.",
-         "levers": {"auto_renew_on": 15}},
-        {"id": "membership", "name": "전용 할인·멤버십 등급",
-         "desc": "장기 고객 전용 할인과 멤버십 등급 혜택을 강화합니다.",
-         "levers": {"auto_renew_on": 10, "activity_up": 5}},
-        {"id": "recap", "name": "개인화 청취 리캡",
-         "desc": "누적 이용기간·청취 기록을 돌아보는 콘텐츠로 이용을 다시 활성화합니다.",
-         "levers": {"activity_up": 10, "revisit": 15}},
-    ],
-}
-
 
 
 # ── 행동 목표(레버): 방향 점검을 통과한 것만 ──
@@ -598,37 +498,59 @@ WHATIF_LEVERS = {
 
 def lever_eligible(customers):
     """레버마다 적용 대상이 되는 고객 수"""
-    active = int((customers["activity_days"] > 0).sum())
+    return {k: int(m.sum()) for k, m in lever_masks(customers).items()}
+
+
+def lever_masks(customers):
+    """레버마다 적용 대상 고객 표시(True/False)."""
+    def col(name, default=0):
+        if name in customers.columns:
+            return pd.to_numeric(customers[name], errors="coerce").fillna(default)
+        return pd.Series(default, index=customers.index)
+
+    active = col("activity_days") > 0
     return {
         "song_variety": active,
         "activity_up": active,
         "listen_time": active,
-        "revisit": int((customers["days_since_last_log"] > 0).sum()),
-        "cancel_stop": int((customers["last_is_cancel"] == 1).sum()),
-        "auto_renew_on": int((customers["last_auto_renew"] == 0).sum()),
+        "revisit": col("days_since_last_log") > 0,
+        "cancel_stop": col("last_is_cancel") == 1,
+        "auto_renew_on": col("last_auto_renew", 1) == 0,
     }
 
 
 def _sync_totals(X, orig):
-    """하루 평균 × 활동일 = 총량이 되도록 맞춘다"""
-    d = X["activity_days"]
+    """하루 평균 × 활동일 = 총량이 되도록 맞춘다 (해당 컬럼이 모델 피처에 있을 때만)."""
+    if "activity_days" not in X.columns:
+        return X
+    d = pd.to_numeric(X["activity_days"], errors="coerce")
     ok = d > 0
-    X.loc[ok, "total_secs"] = X.loc[ok, "avg_daily_secs"] * d[ok]
-    X.loc[ok, "total_num_unq"] = (X.loc[ok, "avg_daily_unq"] * d[ok]).round()
-    X.loc[ok, "total_num_100"] = (X.loc[ok, "avg_daily_complete"] * d[ok]).round()
-    X.loc[ok, "complete_per_unq"] = X.loc[ok, "total_num_100"] / X.loc[ok, "total_num_unq"].replace(0, np.nan)
+    pairs = [("total_secs", "avg_daily_secs", False), ("total_num_unq", "avg_daily_unq", True),
+             ("total_num_100", "avg_daily_complete", True)]
+    for total, daily, rounded in pairs:
+        if total in X.columns and daily in X.columns:
+            value = X.loc[ok, daily] * d[ok]
+            X.loc[ok, total] = value.round() if rounded else value
+    if {"complete_per_unq", "total_num_100", "total_num_unq"}.issubset(X.columns):
+        X.loc[ok, "complete_per_unq"] = X.loc[ok, "total_num_100"] / X.loc[ok, "total_num_unq"].replace(0, np.nan)
+        # 0으로 나눠 새로 생긴 빈 값은 원래 값으로 채워요 (없던 결측을 만들지 않게)
+        X["complete_per_unq"] = X["complete_per_unq"].fillna(orig["complete_per_unq"])
     for c in ["total_secs", "total_num_unq", "total_num_100", "complete_per_unq"]:
-        X.loc[~ok, c] = orig.loc[~ok, c]
+        if c in X.columns:
+            X.loc[~ok, c] = orig.loc[~ok, c]
     return X
 
 
 def apply_levers(X, levers, seed=42):
-    """레버 설정대로 이탈 모델 입력 피처를 바꾼다."""
+    """레버 설정대로 이탈 모델 입력 피처를 바꾼다. 모델 피처에 없는 레버는 건너뛴다."""
     orig = X
     X = X.copy()
     rng = np.random.default_rng(seed)
 
     def flip(cols, from_v, to_v, pct):
+        cols = [c for c in cols if c in X.columns]
+        if not cols:
+            return
         idx = X.index[X[cols[0]] == from_v]
         n = int(round(len(idx) * pct / 100))
         if n > 0:
@@ -636,13 +558,13 @@ def apply_levers(X, levers, seed=42):
             for c in cols:
                 X.loc[chosen, c] = to_v
 
-    if levers.get("song_variety"):
-        X["avg_daily_unq"] *= 1 + levers["song_variety"] / 100
-    if levers.get("listen_time"):
-        X["avg_daily_secs"] *= 1 + levers["listen_time"] / 100
-    if levers.get("activity_up"):
+    if levers.get("song_variety") and "avg_daily_unq" in X.columns:
+        X["avg_daily_unq"] = X["avg_daily_unq"] * (1 + levers["song_variety"] / 100)
+    if levers.get("listen_time") and "avg_daily_secs" in X.columns:
+        X["avg_daily_secs"] = X["avg_daily_secs"] * (1 + levers["listen_time"] / 100)
+    if levers.get("activity_up") and "activity_days" in X.columns:
         X["activity_days"] = (X["activity_days"] * (1 + levers["activity_up"] / 100)).clip(upper=90).round()
-    if levers.get("revisit"):
+    if levers.get("revisit") and "days_since_last_log" in X.columns:
         X["days_since_last_log"] = (X["days_since_last_log"] * (1 - levers["revisit"] / 100)).round()
     if levers.get("cancel_stop"):
         flip(["last_is_cancel", "cancel_on_last_date"], 1, 0, levers["cancel_stop"])
@@ -702,8 +624,6 @@ CLUSTER_MARKETING = {
     },
 }
 
-from scipy.stats import norm
-
 
 def required_n_per_group(p1, p2, alpha=0.05, power=0.8):
     """두 그룹 이탈률 차이(p1 vs p2)를 확인하는 데 필요한 그룹당 인원"""
@@ -715,3 +635,113 @@ def required_n_per_group(p1, p2, alpha=0.05, power=0.8):
     return int(np.ceil(n))
 
 
+
+
+# ═════════════════════════════════════════════
+# 새 흐름: 마케팅 설계 → 고객 매칭 → A/B 테스트 → 라이브러리
+# ═════════════════════════════════════════════
+def affected_mask(customers, levers):
+    """켜진 행동 목표 중 하나라도 적용될 수 있는 고객."""
+    masks = lever_masks(customers)
+    mask = pd.Series(False, index=customers.index)
+    for key, value in levers.items():
+        if value and key in masks:
+            mask |= masks[key]
+    return mask
+
+
+def rank_segments(risk, levers, churn_bundle, cluster_marketing=None, seed=42):
+    """유형 4가지 각각에 같은 행동 목표를 적용해 예상 이탈 감소 순으로 순위를 매긴다.
+
+    risk : 적용 조건까지 통과한 위험 회원 (segment 컬럼 포함)
+    """
+    cluster_marketing = cluster_marketing if cluster_marketing is not None else CLUSTER_MARKETING
+    active = {k for k, v in levers.items() if v}
+    rows = []
+    for name in CLUSTER_MARKETING:
+        part = risk[risk["segment"] == name]
+        row = {"segment": name, "대상_인원": len(part), "영향_가능": 0, "평균_이탈확률": np.nan,
+               "목표후_이탈확률": np.nan, "예상_감소": 0.0, "확률상승_비율": 0.0}
+        if len(part):
+            res = whatif_customers(part, levers, churn_bundle, seed)["summary"]
+            row.update({
+                "영향_가능": int(affected_mask(part, levers).sum()),
+                "평균_이탈확률": res["현재_평균이탈확률"],
+                "목표후_이탈확률": res["목표후_평균이탈확률"],
+                "예상_감소": res["예상_감소인원"],
+                "확률상승_비율": res["확률상승_고객비율"],
+            })
+        core = set((cluster_marketing.get(name) or {}).get("core", {}))
+        row["추천_일치"] = bool(core & active)
+        row["추천_전략"] = (cluster_marketing.get(name) or {}).get("name", "")
+        rows.append(row)
+
+    table = pd.DataFrame(rows).sort_values("예상_감소", ascending=False).reset_index(drop=True)
+    table["순위"] = np.arange(1, len(table) + 1)
+    top = table["예상_감소"].max()
+    table["효과_작음"] = (table["예상_감소"] <= max(top, 0) * 0.15) | (table["예상_감소"] <= 0)
+    return table
+
+
+def hypothesis(customers, levers, churn_bundle, seed=42):
+    """실험 전 가설: 실험군 예상 이탈률(목표 달성 시) vs 대조군 예상 이탈률(현재)."""
+    s = whatif_customers(customers, levers, churn_bundle, seed)["summary"]
+    p_ctrl, p_treat = s["현재_평균이탈확률"], s["목표후_평균이탈확률"]
+    return {
+        "p_ctrl": p_ctrl,
+        "p_treat": p_treat,
+        "reduced": s["예상_감소인원"],
+        "required_n": required_n_per_group(p_ctrl, p_treat) if p_treat < p_ctrl else None,
+    }
+
+
+def two_prop_test(n_t, x_t, n_c, x_c):
+    """실험군·대조군 이탈률 차이 검정 (두 비율 z-검정).
+
+    diff > 0 이면 실험군 이탈률이 더 낮다(좋다)는 뜻이에요.
+    """
+    n_t, x_t, n_c, x_c = int(n_t), int(x_t), int(n_c), int(x_c)
+    if min(n_t, n_c) <= 0:
+        raise ValueError("두 그룹의 인원은 각각 1명 이상이어야 합니다.")
+    if not (0 <= x_t <= n_t and 0 <= x_c <= n_c):
+        raise ValueError("이탈자 수는 0명 이상이며 그룹 인원을 초과할 수 없습니다.")
+    p_t, p_c = x_t / n_t, x_c / n_c
+    diff = p_c - p_t
+    pool = (x_t + x_c) / (n_t + n_c)
+    se_pool = np.sqrt(pool * (1 - pool) * (1 / n_t + 1 / n_c))
+    z = diff / se_pool if se_pool > 0 else 0.0
+    p_value = float(2 * (1 - norm.cdf(abs(z))))
+    se = np.sqrt(p_t * (1 - p_t) / n_t + p_c * (1 - p_c) / n_c)
+    return {"n_t": n_t, "x_t": x_t, "n_c": n_c, "x_c": x_c, "p_t": p_t, "p_c": p_c,
+            "diff": diff, "z": float(z), "p_value": p_value,
+            "ci_low": float(diff - 1.96 * se), "ci_high": float(diff + 1.96 * se)}
+
+
+def decide_verdict(test, required_n=None, alpha=0.05):
+    """판정 규칙
+
+    - 효과 있음 : 실험군 이탈률이 낮고, p < 0.05
+    - 효과 없음 : 실험군 이탈률이 오히려 높고 p < 0.05 (역효과)
+                  또는 차이가 없는데(p ≥ 0.05) 필요 인원을 채운 경우
+    - 판단 보류 : 차이가 없는데 필요 인원이 모자란 경우 (인원을 늘려 다시 볼 가치가 있음)
+    """
+    p, diff = test["p_value"], test["diff"]
+    if p < alpha and diff > 0:
+        return "효과 있음", "실험군 이탈률이 대조군보다 낮으며, 우연일 가능성은 5% 미만입니다."
+    if p < alpha and diff < 0:
+        return "효과 없음", "실험군 이탈률이 더 높아 전략의 역효과 가능성이 있습니다."
+    enough = required_n is not None and min(test["n_t"], test["n_c"]) >= required_n
+    if enough:
+        return "효과 없음", "필요 인원을 충족했으나 두 그룹 간 차이가 명확하지 않습니다."
+    return "판단 보류", "그룹 간 차이가 명확하지 않고 표본이 부족합니다. 표본 확대 후 재실험이 필요합니다."
+
+
+def simulate_ab(treat, ctrl, levers, churn_bundle, seed=42):
+    """시연 모드: 실험군은 목표 달성 후 확률, 대조군은 현재 확률로 이탈 여부를 뽑은 가상 결과."""
+    rng = np.random.default_rng(seed + 7)
+    _, after_t, _, _, _ = whatif_probs(treat, levers, churn_bundle, seed)
+    before_c = ctrl["churn_prob"].to_numpy(dtype=float)
+    return {
+        "n_t": len(treat), "x_t": int((rng.random(len(after_t)) < after_t).sum()),
+        "n_c": len(ctrl), "x_c": int((rng.random(len(before_c)) < before_c).sum()),
+    }

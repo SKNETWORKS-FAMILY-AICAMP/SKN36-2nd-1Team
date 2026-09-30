@@ -1,3 +1,6 @@
+# 환경변수 (DB 비밀번호 등)
+.env
+
 # 가상환경
 .venv/
 
@@ -24,3 +27,5 @@ data/processed/*
 
 models/*.joblib
 models/*.pkl
+
+mysql_data/

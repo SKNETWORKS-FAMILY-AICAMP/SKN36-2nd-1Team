@@ -1,11 +1,12 @@
 """
-KKeeper — 고객 이탈 관리 워크스페이스 (시안 A · 레코드판)
+KKeeper — 고객 이탈 관리 워크스페이스
 
-실행:  streamlit run app.py
-구성:  app.py              홈 + 아직 준비 중인 페이지(고객 매칭·실험 관리·라이브러리)
-       ui.py            공통 테마·스타일·상단 메뉴
-       pages/1_marketing.py 마케팅 설계 (주소: /marketing)
-화면:  오른쪽 위 해/달 버튼으로 라이트·다크 모드 전환 (기본: 다크)
+실행:  (프로젝트 폴더에서)  streamlit run app/app.py
+
+화면 흐름
+  홈 · 현황(대시보드)
+  1 마케팅 설계 → 2 고객 매칭 → 3 실험 관리(A/B 테스트) → 4 라이브러리
+  모델(참고)
 """
 
 import sys
@@ -13,25 +14,14 @@ from pathlib import Path
 
 import streamlit as st
 
-# ui.py는 app.py와 같은 폴더에 있어요 (pages 폴더 안이 아니에요)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ui  # noqa: E402
-from ui import PAGES, icon, link, compact
+from ui import compact, icon  # noqa: E402
 
 st.set_page_config(page_title="KKeeper", layout="wide", initial_sidebar_state="collapsed")
-
-# 다른 페이지에서 넘어올 때(st.switch_page)는 주소 대신 세션에 담긴 값을 써요
-ss = st.session_state
-page = st.query_params.get("page") or ss.pop("goto", None) or "home"
-if page not in PAGES or page in ("input", "matching", "experiments", "library"):
-    page = "home"
-T = ui.init(page, ss.pop("goto_theme", None))
-theme_name = ui.theme_name
+T = ui.init("home")
 
 
-# ─────────────────────────────────────────────
-# 홈
-# ─────────────────────────────────────────────
 def vinyl_svg() -> str:
     av = T["avatar"]
     rings = "".join(
@@ -75,85 +65,223 @@ def vinyl_svg() -> str:
 
 
 STEPS = [
-    ("01", "pencil", "마케팅 설계", "전략의 목적과 적용 조건을 입력하세요.", "input"),
-    ("02", "grid", "고객 매칭", "이탈 위험도와 행동 특성으로<br>전략에 맞는 유형을 추천합니다.", "matching"),
-    ("03", "split", "실험 관리", "매칭된 고객을 두 그룹으로 나눠<br>전략을 적용합니다.", "experiments"),
-    ("04", "books", "라이브러리", "두 그룹의 결과를 비교하고<br>검증된 전략을 저장합니다.", "library"),
+    ("01", "pencil", "마케팅 설계", "마케팅 방안과 대상 조건 입력", "marketing"),
+    ("02", "grid", "고객 매칭", "전략이 잘 통할 고객 유형 추천", "matching"),
+    ("03", "split", "실험 관리", "두 그룹으로 나눠 실제 효과 검증", "experiments"),
+    ("04", "books", "라이브러리", "효과가 확인된 전략 저장과 재활용", "library"),
 ]
 
 
-def home_html() -> str:
-    cards = "".join(
-        f"""<a class="kk-card" href="{link(to)}" target="_self">
-  <div class="kk-card-top"><div class="kk-ibox">{icon(ic, 24)}</div><span class="kk-num">{n}</span></div>
-  <div><div class="kk-card-title">{title}{icon('arrow', 20, T['subtle'])}</div><span class="kk-card-desc">{desc}</span></div>
-</a>"""
-        for n, ic, title, desc, to in STEPS
-    )
-    mini_vinyl = (
-        '<svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20" fill="#1F1E24" stroke="#34323B"/>'
-        '<circle cx="22" cy="22" r="14" fill="none" stroke="#FFFFFF" stroke-opacity="0.08"/><circle cx="22" cy="22" r="8" fill="#9C7EDB"/>'
-        '<circle cx="22" cy="22" r="2" fill="#1F1E24"/></svg>'
-    )
+def home_css() -> str:
     return f"""
-<section class="kk-hero">
-  <div class="kk-hero-text">
-    <div class="kk-badge"><span class="kk-dot"></span>음악 스트리밍 서비스 구독자 이탈 방지</div>
-    <div style="display:flex; flex-direction:column; gap:44px">
-      <h1 class="kk-h1"><span style="color:{T['accent']}">KK</span>eeper</h1>
-      <p class="kk-sub">고객 이탈 관리 워크스페이스</p>
-    </div>
-    <p class="kk-desc">마케팅 설계부터 고객 매칭, 실험, 검증까지 한 곳에서.</p>
-    <div class="kk-btns">
-      <a class="kk-btn primary" href="{link('input')}" target="_self">마케팅 설계 시작하기 {icon('arrow', 18, 'currentColor', 2.2)}</a>
-      <a class="kk-btn secondary" href="{link('library')}" target="_self">라이브러리 보기</a>
-    </div>
-  </div>
-  {vinyl_svg()}
-</section>
+<style>
+  /* 헤더 높이와 정렬은 ui.global_css()에서 모든 페이지에 공통 적용합니다. */
 
-<section class="kk-section">
-  <div class="kk-sec-head"><h2 class="kk-h2">시작하기</h2></div>
-  <div class="kk-steps">{cards}</div>
-</section>
+  /* 홈 화면은 참고 시안의 64px 여백과 500px 히어로 리듬을 따릅니다. */
+  .st-key-kk-hero {{ min-height: 500px; padding: 0 64px; display: flex; align-items: center; }}
+  .st-key-kk-hero > div, .st-key-kk-hero > div > [data-testid="stVerticalBlock"] {{ width: 100%; }}
+  .st-key-kk-hero > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {{
+      gap: 40px !important; align-items: center; }}
+  .kk-hero-text {{ width: 660px; max-width: 100%; padding-bottom: 12px; display: flex; flex-direction: column; gap: 26px; }}
+  .kk-hbadge {{ align-self: flex-start; display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px;
+              border: 1px solid {T['chip_border']}; border-radius: 999px; font-size: 13px; font-weight: 500;
+              color: {T['badge_text']}; letter-spacing: .02em; }}
+  .kk .kk-h1, .kk .kk-h1 span {{ font-family: Rubik, sans-serif !important; font-weight: 700 !important; font-size: 132px !important;
+      line-height: 0.95 !important; letter-spacing: -0.035em !important; color: {T['text']}; }}
+  .kk .kk-sub {{ font-size: 24px !important; font-weight: 700 !important; line-height: 1.25 !important; letter-spacing: -0.02em; }} .st-key-kk-hero-btns {{ margin-top: 0 !important; padding-top: 34px !important; }}
+  .kk-vinyl {{ display: block; width: 540px; max-width: 100%; margin: 32px auto 0; }}
+  .kk-spin {{ transform-box: fill-box; transform-origin: center; animation: kkspin 28s linear infinite; }}
+  @keyframes kkspin {{ to {{ transform: rotate(360deg); }} }}
+  @media (prefers-reduced-motion: reduce) {{ .kk-spin {{ animation: none; }} }}
 
-<section class="kk-section" style="padding-bottom:56px">
-  <h2 class="kk-h2">최근 작업</h2>
-  <div class="kk-recent">
-    <div class="kk-thumb">{mini_vinyl}</div>
-    <div class="kk-recent-body">
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
-        <span style="font-size:19px; font-weight:700">콘텐츠 추천 실험</span><span class="kk-tag">실험군 vs 대조군</span>
-      </div>
-      <span style="font-size:15px; color:{T['muted']}">매칭된 고객 유형을 대상으로 맞춤 콘텐츠 추천 효과를 비교합니다.</span>
-    </div>
-    <div class="kk-status"><span class="kk-dot"></span>진행 중</div>
-    <a class="kk-ghost" href="{link('experiments')}" target="_self">이어하기 {icon('arrow', 16, 'currentColor', 2.2)}</a>
-  </div>
-</section>"""
+  .st-key-kk-hero-btns {{ margin-top: 12px; }}
+  .st-key-kk-hero-btns [data-testid="stHorizontalBlock"] {{ gap: 12px !important; justify-content: flex-start; }}
+  .st-key-kk-hero-btns [data-testid="stColumn"] {{ flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }}
+  .st-key-kk-hero-btns a {{ height: 56px; padding: 0 28px !important; border-radius: 999px !important; }}
+  .st-key-kk-hero-btns a p {{ font-size: 17px !important; font-weight: 700 !important; }}
+  .st-key-kk-cta-main a {{ background: {T['accent']} !important; }}
+  .st-key-kk-cta-main a p {{ color: {T['accent_text']} !important; }}
+  .st-key-kk-cta-main button {{
+      height: 56px !important; padding: 0 28px !important; border-radius: 999px !important;
+      background: {T['accent']} !important; border: none !important;
+  }}
+  .st-key-kk-cta-main button p {{
+      font-size: 17px !important; font-weight: 700 !important; color: {T['accent_text']} !important;
+  }}
+  .st-key-kk-cta-sub a {{ background: {T['secondary_bg']} !important; border: 1px solid {T['secondary_border']} !important; }}
+  .st-key-kk-cta-sub a p {{ color: {T['secondary_text']} !important; }}
+
+  .st-key-kk-home {{ padding: 0 64px 56px; }}
+  .st-key-kk-home > div > [data-testid="stVerticalBlock"] {{ gap: 16px; }}
+  .st-key-kk-steps-grid [data-testid="stHorizontalBlock"] {{ gap: 16px !important; }}
+  .kk .kk-h2 {{ font-size: 20px !important; line-height: 1.3 !important; font-weight: 700 !important; letter-spacing: -0.01em; }}
+  .st-key-kk-start-title {{ min-height: 26px; margin-bottom: 12px; }}
+  div[class*="st-key-kk-step-"] {{ position: relative; min-height: 185px; }}
+  div[class*="st-key-kk-step-"] > [data-testid="stElementContainer"]:has([data-testid="stPageLink"]) {{
+      position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; z-index: 3; }}
+  div[class*="st-key-kk-step-"] [data-testid="stPageLink"] {{ position: absolute; inset: 0; z-index: 3; }}
+  div[class*="st-key-kk-step-"] [data-testid="stPageLink"] a {{
+      position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; opacity: 0; }}
+  .kk-scard {{ height: 185px; padding: 22px 26px; border-radius: 20px; background: {T['tint']}; border: 1px solid {T['tint_border']};
+             display: flex; flex-direction: column; justify-content: space-between; }}
+  div[class*="st-key-kk-step-"]:hover .kk-scard {{ border-color: {T['accent']}; }}
+  .kk-ibox {{ width: 52px; height: 52px; border-radius: 14px; background: {T['icon_box']}; color: {T['accent']};
+             display: flex; align-items: center; justify-content: center; }}
+  .kk-snum {{ font-family: Rubik, sans-serif !important; font-size: 16px; font-weight: 700; color: {T['num']}; }}
+  .kk-stitle {{ display: flex; align-items: center; justify-content: space-between; font-size: 20px; font-weight: 700; }}
+  .kk-sdesc {{ display: block; min-height: 45px; margin-top: 8px; font-size: 15px; line-height: 1.5; color: {T['muted']}; }}
+  .st-key-kk-recent-title {{ min-height: 26px; margin-top: 20px; margin-bottom: 12px; }}
+  .st-key-kk-recent-row {{ min-height: 104px; padding: 16px 24px 16px 20px; border-radius: 20px;
+      background: {T['tint']}; border: 1px solid {T['tint_border']}; }}
+  .st-key-kk-recent-row > div > [data-testid="stVerticalBlock"] {{ justify-content: center; }}
+  .st-key-kk-recent-row [data-testid="stHorizontalBlock"] {{ gap: 22px !important; align-items: center; }}
+  .st-key-kk-recent-row [data-testid="stColumn"]:last-child {{ flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }}
+  .st-key-kk-recent-row [data-testid="stPageLink"] a {{ height: 48px; padding: 0 22px !important; border-radius: 999px !important;
+      border: 1px solid {T['secondary_border']} !important; background: {T['surface']} !important; white-space: nowrap; }}
+  .st-key-kk-recent-row [data-testid="stPageLink"] p {{ font-size: 15px !important; font-weight: 600 !important; color: {T['text']} !important; }}
+  .kk-recent {{ min-height: 70px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }}
+  .kk-thumb {{ width: 64px; height: 64px; border-radius: 14px; background: {T['icon_box']}; display: flex; align-items: center; justify-content: center; }}
+
+  @media (max-width: 1100px) {{
+    .st-key-kk-hero {{ padding-top: 32px; padding-bottom: 32px; align-items: flex-start; }}
+    .st-key-kk-hero > div > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {{
+        flex-direction: column; align-items: flex-start; gap: 8px !important; }}
+    .st-key-kk-hero [data-testid="stColumn"] {{ width: 100% !important; flex: 1 1 100% !important; }}
+    .kk-vinyl {{ width: min(540px, 78vw); margin-top: 8px; }}
+    .st-key-kk-steps-grid [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap; }}
+    .st-key-kk-steps-grid [data-testid="stColumn"] {{ flex: 1 1 calc(50% - 8px) !important; width: calc(50% - 8px) !important; }}
+    .kk-scard {{ height: auto; min-height: 175px; gap: 20px; }}
+  }}
+  @media (max-width: 640px) {{
+    /* 홈의 공통 메뉴는 모바일에서도 한 줄을 유지하고 좌우로 넘겨 볼 수 있게 합니다. */
+    .st-key-kk-head {{ padding: 14px 16px; overflow-x: auto; scrollbar-width: none; }}
+    .st-key-kk-head::-webkit-scrollbar {{ display: none; }}
+    .st-key-kk-head [data-testid="stHorizontalBlock"] {{
+        flex-direction: row !important; flex-wrap: nowrap !important; width: max-content !important; min-width: max-content !important;
+        min-height: 44px; gap: 4px !important; }}
+    .st-key-kk-head [data-testid="stColumn"] {{ flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; }}
+    .st-key-kk-head [data-testid="stColumn"]:first-child {{ width: 158px !important; flex-basis: 158px !important; }}
+    .st-key-kk-hero, .st-key-kk-home {{ padding-left: 16px; padding-right: 16px; }}
+    .st-key-kk-home {{ padding-bottom: 40px; }}
+    .kk .kk-h1, .kk .kk-h1 span {{ font-size: 72px !important; }}
+    .kk .kk-sub {{ font-size: 24px !important; }}
+    .st-key-kk-hero-btns [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap; }}
+    .st-key-kk-steps-grid [data-testid="stColumn"] {{ flex: 1 1 100% !important; width: 100% !important; }}
+    .st-key-kk-recent-row {{ padding: 16px; }}
+    .st-key-kk-recent-row [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap; gap: 14px !important; }}
+    .st-key-kk-recent-row [data-testid="stColumn"] {{ flex: 1 1 100% !important; width: 100% !important; }}
+    .st-key-kk-recent-row [data-testid="stColumn"]:last-child {{ flex-basis: 100% !important; width: 100% !important; }}
+    .st-key-kk-recent-row [data-testid="stPageLink"] a {{ width: 100%; }}
+  }}
+</style>"""
 
 
-
-# ─────────────────────────────────────────────
-# 준비 중인 페이지
-# ─────────────────────────────────────────────
-PAGE_INTRO = {
-    "experiments": "실험군·대조군 실험을 만들고 진행 상황을 보는 화면이 들어갈 자리예요.",
-    "library": "검증된 전략을 모아 보는 화면이 들어갈 자리예요.",
-}
-
-
-def placeholder_html(key: str) -> str:
-    title = PAGES.get(key)
-    intro = PAGE_INTRO.get(key, "")
+def hero_text_html() -> str:
     return f"""
-<section class="kk-page">
-  <h1 class="kk-h2 kk-title">{title}</h1>
-  <div class="kk-empty">{intro}<br>아직 준비 중인 화면이에요.</div>
-</section>"""
+<div class="kk-hero-text">
+  <div class="kk-hbadge"><span class="kk-dot" style="background:#9C7EDB"></span>음악 스트리밍 서비스 구독자 이탈 방지</div>
+  <div style="display:flex; flex-direction:column; gap:26px">
+    <h1 class="kk-h1"><span style="color:{T['accent']}">KK</span>eeper</h1>
+    <p class="kk-sub">고객 이탈 관리 워크스페이스</p>
+  </div>
+</div>"""
 
+
+def step_card(n, ic, title, desc) -> str:
+    return f"""<div class="kk"><div class="kk-scard">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start">
+    <div class="kk-ibox">{icon(ic, 24)}</div><span class="kk-snum">{n}</span></div>
+  <div><div class="kk-stitle">{title}{icon('arrow', 20, T['subtle'])}</div><span class="kk-sdesc">{desc}</span></div>
+</div></div>"""
+
+
+def recent_html() -> tuple[str, str | None]:
+    """최근 실험 한 건 (없으면 안내)."""
+    mini = ('<svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20" fill="#1F1E24" stroke="#34323B"/>'
+            '<circle cx="22" cy="22" r="14" fill="none" stroke="#FFFFFF" stroke-opacity="0.08"/><circle cx="22" cy="22" r="8" fill="#9C7EDB"/>'
+            '<circle cx="22" cy="22" r="2" fill="#1F1E24"/></svg>')
+    try:
+        from common import db
+        from common.constants import seg_display
+        exps = db.list_experiments()
+    except Exception:
+        exps = []
+    if not exps:
+        body = (f'<span style="font-size:19px; font-weight:700">등록된 실험 없음</span>'
+                f'<span style="font-size:15px; color:{T["muted"]}">마케팅 방안 입력 후 효과가 높은 고객을 선별하여 A/B 테스트를 설계합니다.</span>')
+        status, target = ui.badge("시작 전", "neutral"), "marketing"
+    else:
+        e = exps[0]
+        if e["status"] == "완료":
+            kind = {"효과 있음": "good", "판단 보류": "warn", "효과 없음": "bad"}.get(e.get("verdict"), "accent")
+            status, target = ui.badge(e.get("verdict") or "완료", kind), "library"
+        elif db.is_waiting(e):
+            status, target = ui.badge("결과 입력 대기", "warn"), "experiments"
+        else:
+            status, target = ui.badge("진행 중", "accent"), "experiments"
+        body = (f'<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap"><span style="font-size:19px; font-weight:700">{ui.esc(e["title"])}</span>'
+                f'{ui.badge("실험군 vs 대조군", "neutral")}</div>'
+                f'<span style="font-size:15px; color:{T["muted"]}">{seg_display(e["segment"])} · 실험군 {int(e.get("n_treat") or 0):,}명 / 대조군 {int(e.get("n_ctrl") or 0):,}명</span>')
+    return (f'<div class="kk"><div class="kk-recent"><div class="kk-thumb">{mini}</div>'
+            f'<div style="flex:1 1 320px; display:flex; flex-direction:column; gap:6px">{body}</div>{status}</div></div>'), target
 
 
 ui.render_header()
-body = home_html() if page == "home" else placeholder_html(page)
-st.markdown(compact(f'<div class="kk">{body}</div>'), unsafe_allow_html=True)
+st.markdown(compact(home_css()), unsafe_allow_html=True)
+with st.container(key="kk-hero"):
+    left, right = st.columns([1.15, 1], vertical_alignment="center")
+    with left:
+        st.markdown(compact(f'<div class="kk">{hero_text_html()}</div>'), unsafe_allow_html=True)
+        with st.container(key="kk-hero-btns"):
+            c1, c2 = st.columns(2)
+            with c1, st.container(key="kk-cta-main"):
+                if st.button("마케팅 설계 시작하기  →", key="kk-new-marketing"):
+                    # 새 마케팅 설계 시작: 이전 작성 중 상태와 매칭/실험 설계 상태 초기화
+                    for key in [
+                        "strategy",
+                        "strategy_draft",
+                        "match",
+                        "design",
+                        "s_name",
+                        "s_kind",
+                        "s_goal",
+                        "s_desc",
+                        "s_period",
+                        "s_last",
+                        "s_plans",
+                        "s_channels",
+                        "lever_base",
+                    ]:
+                        st.session_state.pop(key, None)
+
+                    # 행동 목표 슬라이더 값 초기화
+                    for key in list(st.session_state.keys()):
+                        if key.startswith("lv_"):
+                            st.session_state.pop(key, None)
+
+                    st.switch_page(ui.PAGE_FILES["marketing"])
+            with c2, st.container(key="kk-cta-sub"):
+                st.page_link(ui.PAGE_FILES["dashboard"], label="오늘 현황 보기")
+    right.markdown(compact(f'<div class="kk">{vinyl_svg()}</div>'), unsafe_allow_html=True)
+
+with st.container(key="kk-home"):
+    with st.container(key="kk-start-title"):
+        st.markdown('<div class="kk"><h2 class="kk-h2">시작하기</h2></div>', unsafe_allow_html=True)
+    with st.container(key="kk-steps-grid"):
+        cols = st.columns(4)
+        for col, (n, ic, title, desc, to) in zip(cols, STEPS):
+            with col, st.container(key=f"kk-step-{to}"):
+                st.markdown(compact(step_card(n, ic, title, desc)), unsafe_allow_html=True)
+                st.page_link(ui.PAGE_FILES[to], label=title)
+
+    with st.container(key="kk-recent-title"):
+        st.markdown(
+            '<div class="kk" style="padding-top:26px"><h2 class="kk-h2">최근 작업</h2></div>',
+            unsafe_allow_html=True
+        )
+    recent, target = recent_html()
+    with st.container(key="kk-recent-row"):
+        left, right = st.columns([5, 1], vertical_alignment="center")
+        left.markdown(compact(recent), unsafe_allow_html=True)
+        with right:
+            st.page_link(ui.PAGE_FILES[target], label="이어하기 →")

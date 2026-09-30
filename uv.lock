@@ -1899,6 +1899,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-dotenv"
+version = "1.2.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6a/53/ed9d74092561d4b01a2ef1349d52cdbc135e526c245f366b089cfca6de49/python_dotenv-1.2.3.tar.gz", hash = "sha256:a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35", size = 58945, upload-time = "2026-08-16T16:54:54.067Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0d/17/c5c6b53ddc18f297992099b3d9ec16c855c0ccc83263a21fe4d1c625ec6c/python_dotenv-1.2.3-py3-none-any.whl", hash = "sha256:904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9", size = 22780, upload-time = "2026-08-16T16:54:52.473Z" },
+]
+
+[[package]]
 name = "python-json-logger"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2304,13 +2313,14 @@ dependencies = [
     { name = "plotly" },
     { name = "pyarrow" },
     { name = "pymysql" },
+    { name = "python-dotenv" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "seaborn" },
     { name = "shap", version = "0.50.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
     { name = "shap", version = "0.52.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
     { name = "sqlalchemy" },
-    { name = "streamlit-sortables" },
+    { name = "streamlit" },
     { name = "torch" },
     { name = "tqdm" },
     { name = "xgboost" },
@@ -2347,12 +2357,13 @@ requires-dist = [
     { name = "plotly", specifier = ">=5.24,<7.0" },
     { name = "pyarrow", specifier = ">=17.0,<22.0" },
     { name = "pymysql", specifier = ">=1.2.3" },
+    { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "scikit-learn", specifier = ">=1.5,<2.0" },
     { name = "scipy", specifier = ">=1.14,<2.0" },
     { name = "seaborn", specifier = ">=0.13,<0.14" },
     { name = "shap", specifier = ">=0.50.0" },
     { name = "sqlalchemy", specifier = ">=2.0.54" },
-    { name = "streamlit-sortables", specifier = ">=0.3.1" },
+    { name = "streamlit", specifier = ">=1.64.0" },
     { name = "torch", specifier = ">=2.14.0" },
     { name = "tqdm", specifier = ">=4.66,<5.0" },
     { name = "xgboost", specifier = ">=2.1,<4.0" },
@@ -2467,18 +2478,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ce/98/399d9b5bea64f0db9a37a800e420ba563dcde293e91d244c7d96acaeb313/streamlit-1.64.0.tar.gz", hash = "sha256:5c3f9a9dec13b5c5197a9c764ebf1a9d77f9e19c1b4af008779cb45c368961a3", size = 9535360, upload-time = "2026-09-15T19:13:53.576Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/8e/e635448a7fd6d92211d4ff2150356b8dffd3fcdc05c00511c61110078871/streamlit-1.64.0-py3-none-any.whl", hash = "sha256:4daf63aa9eaa5452d0edc64a5bdb0c4ad25580fe3c62c270455f3c43e9db5098", size = 10093987, upload-time = "2026-09-15T19:13:51.284Z" },
-]
-
-[[package]]
-name = "streamlit-sortables"
-version = "0.3.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "streamlit" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/11/10/00c3ae0f183d41bb3608157283a2c92e4f4db87cb21a73e96b3c2c2ca58f/streamlit_sortables-0.3.1.tar.gz", hash = "sha256:9bed78f4407f2b9b1ddead8b6459d1af839aab427b7b5fe4c091e6870630acfe", size = 564139, upload-time = "2025-01-13T07:37:44.533Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3d/b4/edbef9fa8e49f5df2745a178c44b23553d8472c22fb23f44f6949d544410/streamlit_sortables-0.3.1-py3-none-any.whl", hash = "sha256:1847b2fa2041762b6442e21224bd8c0316c5412e4eb3a38fa748cf7ced834d49", size = 570356, upload-time = "2025-01-13T07:37:42.852Z" },
 ]
 
 [[package]]
