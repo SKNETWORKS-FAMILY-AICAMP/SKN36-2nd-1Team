@@ -11,7 +11,7 @@
 │   ├─ risk_segment_summary.csv       (선택) 유형별 요약. 없으면 직접 계산
 │   └─ test_predictions.csv           (선택) y_true, y_prob  ← 모델 페이지 성능 지표용
 └─ models/
-    └─ lgbm_final.joblib              (필수) {"model", "features", "categories"}
+    └─ final_model_lgb.pkl           (필수) {"model", "features", "categories", ...} ← 05_final_model에서 저장
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ DASHBOARD_PATHS = [DATA_DIR / "kkbox_dashboard_customers.csv", SCORED_PATH]
 SEGMENTS_PATH = DATA_DIR / "risk_segments.csv"
 SEGMENT_SUMMARY_PATH = DATA_DIR / "risk_segment_summary.csv"
 TEST_PRED_PATH = DATA_DIR / "test_predictions.csv"
-CHURN_MODEL_PATH = MODEL_DIR / "lgbm_final.joblib"
+CHURN_MODEL_PATH = MODEL_DIR / "final_model_lgb.pkl"
 
 
 def _as_binary(series: pd.Series) -> pd.Series:
