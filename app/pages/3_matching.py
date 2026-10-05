@@ -268,8 +268,6 @@ with st.container(key="kk-body"):
     st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
 
     options = [seg_display(s) for s in order if int(table.set_index("segment").loc[s, "대상_인원"]) > 0]
-
-    options = [seg_display(s) for s in order if int(table.set_index("segment").loc[s, "대상_인원"]) > 0]
     if not options:
         st.warning("적용 조건에 해당하는 위험 회원이 없습니다. 마케팅 설계에서 조건을 확대하십시오.")
         if st.button("← 마케팅 설계로", key="back-empty"):

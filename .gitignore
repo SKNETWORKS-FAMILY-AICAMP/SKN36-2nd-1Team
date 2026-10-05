@@ -29,3 +29,6 @@ models/*.joblib
 models/*.pkl
 
 mysql_data/
+
+# 앱 실행 시 자동 생성되는 로컬 실험 DB (SQLite)
+data/kkeeper.db
