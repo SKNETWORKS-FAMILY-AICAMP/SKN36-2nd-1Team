@@ -5,6 +5,8 @@
 
 음악 스트리밍 플랫폼 **KKBox** 유료 회원의 청취·결제 행동 데이터를 기반으로 고객 이탈을 예측하고, 고객 유형화·SHAP 분석·마케팅 전략 실험을 연결해 데이터 기반 리텐션 의사결정을 지원하는 서비스형 프로젝트입니다.
 
+---
+
 ## 팀원 소개
 
 전체 팀원이 EDA·Feature Engineering·머신러닝·딥러닝 베이스라인을 공통으로 수행하고, 이후 단계는 아래와 같이 역할을 나눠 진행했습니다.
@@ -39,6 +41,8 @@
 | **용우** | 머신러닝 | 사용자 로그 EDA, 이용 행동 피처 생성, 데이터 분할, 베이스라인 구축, Logistic Regression·Random Forest·LightGBM·CatBoost 등 모델 비교, 성능 평가 및 모델 저장 | 머신러닝 성능 비교, 학습 결과, ML 모델, 예측 코드 |
 | **선아** | 딥러닝 | 이용 변화량 EDA, 종합 행동 피처 생성, MLP 모델 설계·학습, 성능 평가, 머신러닝 모델과 성능 비교, 딥러닝 모델 저장 | 딥러닝 학습 결과, ML·DL 비교표, DL 모델, 추론 코드 |
 
+---
+
 ## 프로젝트 개요
 
 ### 배경
@@ -49,6 +53,8 @@
 1. **이탈 위험 고객 조기 식별**: 청취 패턴·결제 이력을 기반으로 이탈 가능성이 높은 고객을 선제적으로 분류
 2. **이탈 핵심 요인 파악**: 어떤 요인이 이탈에 가장 큰 영향을 미치는지 데이터로 확인
 3. **고객 유형별 맞춤 대응**: 이탈 위험 고객을 유형화해, 유형별로 다른 이탈 요인에 맞는 대응 전략 연결
+
+---
 
 ## 기술 스택
 
@@ -63,6 +69,8 @@
 | 데이터베이스 | SQLite(기본) / MySQL(선택) |
 | 패키지 관리 | uv |
 | 협업 도구 | Git/GitHub, Notion, Discord, Google Drive |
+
+---
 
 ## 데이터
 
@@ -88,6 +96,8 @@
 | | `days_to_expire` | 마지막 거래 만료일 − 기준일 (모델 피처에서는 제외, 자세한 내용은 `notebooks/02_machine_learning` 참고) |
 | 활동 정보 | `activity_days`, `total_secs`, `total_num_100`, `total_num_unq`, `days_since_last_log` | 활동일 수, 총 청취 시간, 완청 횟수, 고유 곡 수, 마지막 청취 후 경과일 |
 | | `has_transaction`, `has_log` | 거래·로그 기록 존재 여부 |
+
+---
 
 ## 폴더 구조
 
@@ -156,6 +166,8 @@ SKN36-2nd-1Team/
 
 > `database/mysql_data/`, `__pycache__/` 등 실행 중 생성되는 파일은 실제 개발 환경에는 존재할 수 있지만 저장소 관리 대상이 아니므로 위 구조에서는 제외했습니다.
 
+---
+
 ## 실행 방법
 
 ```bash
@@ -176,6 +188,8 @@ uv run streamlit run app/app.py
 ```
 
 실험 관리(A/B 테스트) 기록은 별도 설정 없이 `data/kkeeper.db`(SQLite)에 자동 저장됩니다. 여러 명이 같은 DB를 공유하고 싶다면 `database/docker-compose.yml`로 MySQL을 띄우고 `KK_DB_URL` 환경변수를 설정하면 됩니다.
+
+---
 
 ## 모델링 결과
 
@@ -213,6 +227,8 @@ ML 5종(Logistic/RF/XGBoost/LightGBM/CatBoost)과 DL 4종(Baseline/BatchNorm/Dro
 5. `total_payment` — 총 결제액
 
 이탈 위험군으로 좁혀서 보면 `last_is_cancel`(마지막 거래 취소), `last_plan_days`(플랜 기간), `cancel_on_last_date`(마지막 거래일 취소 여부)의 영향이 더 커지는 경향을 보였습니다. 고객 유형별 SHAP 분석 결과는 `notebooks/07_SHAP/` 참고.
+
+---
 
 ## 서비스 화면
 
