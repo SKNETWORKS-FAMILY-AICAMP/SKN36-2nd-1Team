@@ -3,62 +3,104 @@
 
 ---
 
-## 프로젝트 소개
+## 📌 프로젝트 소개
 
 음악 스트리밍 플랫폼 **KKBox** 유료 회원의 청취·결제 행동 데이터를 기반으로 고객 이탈을 예측하고, 고객 유형화·SHAP 분석·마케팅 전략 실험을 연결해 데이터 기반 리텐션 의사결정을 지원하는 서비스형 프로젝트입니다.
 
 ---
 
-## 팀원 소개
+## 👥 팀원 소개 및 역할 분담
 
-전체 팀원이 EDA·Feature Engineering·머신러닝·딥러닝 베이스라인을 공통으로 수행하고, 이후 단계는 아래와 같이 역할을 나눠 진행했습니다.
+기초 분석과 모델링은 팀원 전원이 함께 진행했으며, 이후 단계부터는 각자의 담당 영역을 나눠 세부 업무를 분담했습니다.
 
 <table>
-  <tr>
-    <td align="center"><img src="docs/assets/소희.jpg" width="160"></td>
-    <td align="center"><img src="docs/assets/희영.jpg" width="160"></td>
-    <td align="center"><img src="docs/assets/용우.jpg" width="160"></td>
-    <td align="center"><img src="docs/assets/선아.jpg" width="160"></td>
-  </tr>
-  <tr>
-    <td align="center"><b>소희</b></td>
-    <td align="center"><b>희영</b></td>
-    <td align="center"><b>용우</b></td>
-    <td align="center"><b>선아</b></td>
-  </tr>
-  <tr>
-    <td align="center">데이터 전처리 · UI</td>
-    <td align="center">EDA · 피처 엔지니어링</td>
-    <td align="center">머신러닝</td>
-    <td align="center">딥러닝</td>
-  </tr>
+  <thead>
+    <tr>
+      <th align="center">팀원</th>
+      <th align="center">담당</th>
+      <th align="left">주요 업무</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center">
+        <img src="docs/assets/소희.jpg" width="120"><br>
+        <b>소희</b>
+      </td>
+      <td align="center">
+        데이터 전처리<br>· UI
+      </td>
+      <td>
+        데이터 구조 확인 및 테이블 병합<br>
+        결측치·이상치 처리 및 학습 데이터 생성<br>
+        회원정보 EDA 및 최종 모델 연동<br>
+        전체 일정·문서 관리 및 웹서비스 UI 구현
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <img src="docs/assets/희영.jpg" width="120"><br>
+        <b>희영</b>
+      </td>
+      <td align="center">
+        EDA<br>· 피처 엔지니어링
+      </td>
+      <td>
+        공통 EDA 기준 수립<br>
+        결제·구독정보 EDA 및 결제 피처 생성<br>
+        팀원별 EDA·피처 취합<br>
+        중복 피처 정리 및 최종 피처 목록 관리
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <img src="docs/assets/용우.jpg" width="120"><br>
+        <b>용우</b>
+      </td>
+      <td align="center">
+        머신러닝
+      </td>
+      <td>
+        사용자 로그 EDA 및 이용 행동 피처 생성<br>
+        데이터 분할 및 베이스라인 구축<br>
+        머신러닝 모델 성능 비교·평가 및 저장<br>
+        외부 마케팅 데이터 분석 및 전략 활용 데이터 구축
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <img src="docs/assets/선아.jpg" width="120"><br>
+        <b>선아</b>
+      </td>
+      <td align="center">
+        딥러닝
+      </td>
+      <td>
+        이용 변화량 EDA 및 종합 행동 피처 생성<br>
+        MLP 모델 설계·학습 및 성능 평가<br>
+        머신러닝·딥러닝 모델 성능 비교<br>
+        딥러닝 모델 저장
+      </td>
+    </tr>
+  </tbody>
 </table>
-
-### 역할 분담
-
-| 담당 | 역할 | 주요 업무 | 주요 산출물 |
-| --- | --- | --- | --- |
-| **소희** | 데이터 전처리 및 UI | 데이터 구조 확인, 테이블 병합, 결측치·이상치 처리, 학습 데이터 생성, 회원정보 EDA, 최종 모델 연동, 전체 일정·문서 관리, 웹서비스 UI 구현 | 전처리 결과서, 통합 학습 데이터, 모델 연동 코드, 최종 문서, 최종 모델, 웹서비스 |
-| **희영** | EDA·피처 엔지니어링 총괄 | 공통 EDA 기준 수립, 결제·구독정보 EDA, 결제 피처 생성, 팀원별 EDA·피처 취합, 중복 피처 정리, 최종 피처 목록 관리 | EDA 결과, 데이터·피처 정의서, 통합 피처 데이터 |
-| **용우** | 머신러닝 | 사용자 로그 EDA, 이용 행동 피처 생성, 데이터 분할, 베이스라인 구축, Logistic Regression·Random Forest·LightGBM·CatBoost 등 모델 비교, 성능 평가 및 모델 저장 | 머신러닝 성능 비교, 학습 결과, ML 모델, 예측 코드 |
-| **선아** | 딥러닝 | 이용 변화량 EDA, 종합 행동 피처 생성, MLP 모델 설계·학습, 성능 평가, 머신러닝 모델과 성능 비교, 딥러닝 모델 저장 | 딥러닝 학습 결과, ML·DL 비교표, DL 모델, 추론 코드 |
 
 ---
 
-## 프로젝트 개요
+## 🎯 프로젝트 개요
 
-### 배경
+### 💡 배경
 - 구독 경제 모델에서는 신규 고객 유치 비용이 기존 고객 유지 비용보다 훨씬 높아, 이탈 방지가 곧 비용 절감으로 이어집니다.
 - 수백만 명 규모의 청취·결제 로그를 사람이 직접 분석해 이탈 징후를 찾는 것은 현실적으로 불가능해, 머신러닝 기반 자동화된 이탈 예측이 필요합니다.
 
-### 목적
+### ✅ 목적
 1. **이탈 위험 고객 조기 식별**: 청취 패턴·결제 이력을 기반으로 이탈 가능성이 높은 고객을 선제적으로 분류
 2. **이탈 핵심 요인 파악**: 어떤 요인이 이탈에 가장 큰 영향을 미치는지 데이터로 확인
 3. **고객 유형별 맞춤 대응**: 이탈 위험 고객을 유형화해, 유형별로 다른 이탈 요인에 맞는 대응 전략 연결
 
 ---
 
-## 기술 스택
+## 🛠️ 기술 스택
 
 | 분류 | 사용 기술 |
 | --- | --- |
@@ -74,19 +116,19 @@
 
 ---
 
-## 데이터
+## 📊 데이터
 
 - **출처**: [Kaggle WSDM - KKBox's Churn Prediction Challenge](https://www.kaggle.com/c/kkbox-churn-prediction-challenge)
 - **Target 정의**: 구독 만료 후 30일 이내 재구독하지 않으면 이탈(`is_churn=1`)
 
-### 최종 데이터셋 (`integrated_data.csv`)
+### 📁 최종 데이터셋 (`integrated_data.csv`)
 - Kaggle 원본 6개 파일(`train_v2`, `members_v3`, `transactions`, `transactions_v2`, `user_logs`, `user_logs_v2`)을 내려받아 활용
 - `train_v2`(전체 97만 명)를 기준으로 `is_churn` 비율을 유지한 채 10만 명을 추출하고, 2017-02-28 기준으로 그 이후 기록·가입 고객을 제외해 `members`·`transactions`·`user_logs`를 각각 10만 명 규모로 샘플링
 - 실제 통합 데이터는 `train_v2`를 기준으로 회원 정보(`members_v3`), 거래 정보(`transactions` 계열 집계), 청취 로그(`user_logs` 계열 집계)를 `msno` 기준으로 결합해 생성
 - `notebooks/01_eda/05_integrated_eda.ipynb` 에서 최종 `integrated_data.csv` 생성
-- 최종 100,000명 × 22컬럼, 이탈 비율 9.0% / 유지 비율 91.0% (원본 전체 비율과 동일)
+- 최종 100,000명 × 22개 컬럼, 이탈 비율 9.0% / 유지 비율 91.0% (원본 전체 비율과 동일)
 
-### 데이터 사전
+### 📖 데이터 사전
 
 | 분류 | 컬럼명 | 설명 |
 | --- | --- | --- |
@@ -101,7 +143,7 @@
 
 ---
 
-## 폴더 구조
+## 🗂️ 폴더 구조
 
 ```text
 SKN36-2nd-1Team/
@@ -129,7 +171,7 @@ SKN36-2nd-1Team/
 │   ├── raw/                       # Kaggle 원본 데이터 (Git 미추적)
 │   ├── sampled/                   # 표본 데이터 (Git 미추적)
 │   ├── processed/
-│   │   └── integrated_data.csv    # 100,000명 × 22컬럼 통합 데이터
+│   │   └── integrated_data.csv    # 100,000명 × 22개 컬럼 통합 데이터
 │   └── kkeeper.db                 # 앱 실행 시 생성되는 SQLite DB (Git 미추적)
 ├── database/
 │   ├── docker-compose.yml
@@ -170,7 +212,7 @@ SKN36-2nd-1Team/
 
 ---
 
-## 실행 방법
+## 🚀 실행 방법
 
 ```bash
 # 1. 환경 설치
@@ -193,10 +235,10 @@ uv run streamlit run app/app.py
 
 ---
 
-## 모델링 결과
+## 📈 모델링 결과
 
-### 최종 모델 선정
-ML 5종(Logistic/RF/XGBoost/LightGBM/CatBoost)과 DL 4종(Baseline/BatchNorm/Dropout/BatchNorm+Dropout MLP)을 비교한 결과, **ML 계열(LightGBM)이 DL 계열 전체보다 높은 성능**을 보여 최종 모델로 선정했습니다.
+### 🏆 최종 모델 선정
+ML 5종(Logistic Regression, Random Forest, XGBoost, LightGBM, CatBoost)과 DL 4종을 비교한 결과, LightGBM이 가장 높은 성능을 보여 최종 모델로 선정했습니다. 주요 모델의 성능은 아래와 같습니다.
 
 | 계열 | 모델 | 담당 | ROC-AUC | Recall | F1 |
 | --- | --- | --- | --- | --- | --- |
@@ -210,16 +252,16 @@ ML 5종(Logistic/RF/XGBoost/LightGBM/CatBoost)과 DL 4종(Baseline/BatchNorm/Dro
 
 ※ ML은 Test 기준(20,000명), DL은 모델마다 Test 또는 Validation 기준이 섞여 있어 참고용으로 함께 표기했습니다. ML 표의 Recall/F1은 F1 최적 운영 기준선(threshold=0.2824) 적용 기준입니다.
 
-<img src="docs/assets/ml_feature_importance.png" width="420"><br>
+<img src="docs/assets/ml_feature_importance.png" width="500"><br>
 *최종 LightGBM Feature Importance (gain 기준) — last_auto_renew, last_is_cancel, last_plan_days 순*
 
-<img src="docs/assets/ml_confusion_matrix.png" width="380"><br>
+<img src="docs/assets/ml_confusion_matrix.png" width="500"><br>
 *Confusion Matrix (threshold=0.2824 적용, Test 기준)*
 
-<img src="docs/assets/dl_auc_comparison.png" width="420"><br>
+<img src="docs/assets/dl_auc_comparison.png" width="500"><br>
 *DL 4종 ROC-AUC 비교*
 
-### 주요 이탈 요인 (SHAP 분석)
+### 🔍 주요 이탈 요인 (SHAP 분석)
 최종 LightGBM 모델의 SHAP 분석 결과, 테스트 데이터 기준 이탈에 가장 크게 기여한 변수는 다음과 같습니다.
 
 1. `last_auto_renew` — 자동갱신 여부 (가장 영향이 큼)
@@ -230,15 +272,18 @@ ML 5종(Logistic/RF/XGBoost/LightGBM/CatBoost)과 DL 4종(Baseline/BatchNorm/Dro
 
 이탈 위험군으로 좁혀서 보면 `last_is_cancel`(마지막 거래 취소), `last_plan_days`(플랜 기간), `cancel_on_last_date`(마지막 거래일 취소 여부)의 영향이 더 커지는 경향을 보였습니다. 고객 유형별 SHAP 분석 결과는 `notebooks/07_SHAP/` 참고.
 
+※ 최종 모델 학습 단계에서는 위 통합 데이터셋을 기반으로
+`payment_per_plan_day`, `tenure_date`, `avg_payment` 등의 파생 피처를 추가 생성했습니다.
+
 ---
 
-## 서비스 화면
+## 🖥️ 서비스 화면
 
-### 메인 화면
+### 1️⃣ 메인 화면
 <img src="docs/assets/main.gif" width="900">
 
-### 현황 및 모델
+### 2️⃣ 현황 및 모델
 <img src="docs/assets/dashboard_model.gif" width="900">
 
-### 마케팅 전략 실행 흐름
+### 3️⃣ 마케팅 전략 실행 흐름
 <img src="docs/assets/marketing_flow.gif" width="900">
