@@ -170,7 +170,7 @@ SKN36-2nd-1Team/
 ├── data/
 │   ├── raw/                       # Kaggle 원본 데이터 (Git 미추적)
 │   ├── sampled/                   # 표본 데이터 (Git 미추적)
-│   ├── processed/
+│   ├── processed/                 # 전처리·예측 결과 데이터 (일부 Git 미추적)
 │   │   └── integrated_data.csv    # 100,000명 × 22개 컬럼 통합 데이터
 │   └── kkeeper.db                 # 앱 실행 시 생성되는 SQLite DB (Git 미추적)
 ├── database/
@@ -204,6 +204,7 @@ SKN36-2nd-1Team/
 │   ├── 07_SHAP/                   # SHAP 분석
 │   └── common/                    # 모델링 공통 유틸
 ├── .gitignore
+├── README.md
 ├── pyproject.toml
 └── uv.lock
 ```
